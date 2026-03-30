@@ -110,9 +110,7 @@ const SUPABASE_ANON_KEY = 'sb_publishable_JT3jSQp5gsxTdNfM30X-6A_Ct3MT3pB';
 
 let supabase = null;
 try {
-  if (SUPABASE_URL !== 'https://yndniceqvedkzjrxtoqt.supabase.co') {
-    supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-  }
+  supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 } catch(e) {}
 
 // ─── CONSTANTS ────────────────────────────────────────────────────
@@ -155,108 +153,13 @@ function Toast({ msg, type, onClose }) {
   );
 }
 
-// ─── DEMO DATA ────────────────────────────────────────────────────
-const DEMO_RADIOS = [
-  { id:1, radio_id:'RD-001', serial_number:'MOT-2024-001', make:'Motorola', model:'DP4800', department:'Production', status:'Assigned', location:'Line A', in_service_date:'2024-01-15', purchase_date:'2024-01-10', warranty_expiration:'2027-01-10', condition:'Good', is_spare:false, repair_needed:false, last_service_date:'2024-11-01', notes:'' },
-  { id:2, radio_id:'RD-002', serial_number:'MOT-2024-002', make:'Motorola', model:'DP4800', department:'Production', status:'Assigned', location:'Line B', in_service_date:'2024-01-15', purchase_date:'2024-01-10', warranty_expiration:'2027-01-10', condition:'Good', is_spare:false, repair_needed:false, last_service_date:'2024-11-01', notes:'' },
-  { id:3, radio_id:'RD-003', serial_number:'KEN-2023-010', make:'Kenwood', model:'NX-3300', department:'Maintenance', status:'Assigned', location:'Shop Floor', in_service_date:'2023-06-01', purchase_date:'2023-05-20', warranty_expiration:'2026-05-20', condition:'Fair', is_spare:false, repair_needed:true, last_service_date:'2024-08-15', notes:'Battery degrading' },
-  { id:4, radio_id:'RD-004', serial_number:'KEN-2023-011', make:'Kenwood', model:'NX-3300', department:'Logistics', status:'Assigned', location:'Warehouse', in_service_date:'2023-06-01', purchase_date:'2023-05-20', warranty_expiration:'2026-05-20', condition:'Good', is_spare:false, repair_needed:false, last_service_date:'2024-10-01', notes:'' },
-  { id:5, radio_id:'RD-005', serial_number:'MOT-2024-003', make:'Motorola', model:'DP4400', department:'Unassigned', status:'Spare', location:'Cage', in_service_date:'2024-03-01', purchase_date:'2024-02-28', warranty_expiration:'2027-02-28', condition:'Excellent', is_spare:true, repair_needed:false, last_service_date:'2024-12-01', notes:'Ready to deploy' },
-  { id:6, radio_id:'RD-006', serial_number:'HYT-2022-055', make:'Hytera', model:'PD782', department:'Unassigned', status:'Out for Repair', location:'Vendor', in_service_date:'2022-09-01', purchase_date:'2022-08-15', warranty_expiration:'2025-08-15', condition:'Damaged', is_spare:false, repair_needed:true, last_service_date:'2024-09-01', notes:'Dropped, speaker broken' },
-  { id:7, radio_id:'RD-007', serial_number:'MOT-2024-004', make:'Motorola', model:'DP4400', department:'Unassigned', status:'Spare', location:'Cage', in_service_date:'2024-03-01', purchase_date:'2024-02-28', warranty_expiration:'2027-02-28', condition:'Good', is_spare:true, repair_needed:false, last_service_date:'2024-12-01', notes:'' },
-  { id:8, radio_id:'RD-008', serial_number:'KEN-2021-003', make:'Kenwood', model:'NX-3200', department:'Unassigned', status:'Retired', location:'Storage', in_service_date:'2021-01-01', purchase_date:'2020-12-15', warranty_expiration:'2023-12-15', condition:'Poor', is_spare:false, repair_needed:false, last_service_date:'2024-01-01', notes:'End of life' },
-];
-
-const DEMO_ASSIGNMENTS = [
-  { id:1, transaction_id:'TXN-001', date:'2024-01-15', serial_number:'MOT-2024-001', from_department:'Unassigned', to_department:'Production', prev_status:'Spare', new_status:'Assigned', reason:'Initial deployment', approved_by:'J. Smith', entered_by:'Admin', notes:'' },
-  { id:2, transaction_id:'TXN-002', date:'2024-06-10', serial_number:'KEN-2023-010', from_department:'Logistics', to_department:'Maintenance', prev_status:'Assigned', new_status:'Assigned', reason:'Department restructure', approved_by:'M. Johnson', entered_by:'Admin', notes:'' },
-  { id:3, transaction_id:'TXN-003', date:'2024-11-20', serial_number:'HYT-2022-055', from_department:'Production', to_department:'Unassigned', prev_status:'Assigned', new_status:'Out for Repair', reason:'Sent to vendor for repair', approved_by:'J. Smith', entered_by:'Admin', notes:'Speaker failure' },
-];
-
-const DEMO_REPAIRS = [
-  { id:1, repair_id:'REP-001', date_reported:'2024-11-18', serial_number:'HYT-2022-055', department:'Production', problem:'Speaker broken after drop', sent_to_vendor:true, vendor_name:'RadioFix Pro', repair_status:'At Vendor', date_sent:'2024-11-20', date_returned:'', warranty_claim:false, downtime_days:40, spare_issued:true, replacement_serial:'MOT-2024-003', notes:'Awaiting estimate' },
-  { id:2, repair_id:'REP-002', date_reported:'2024-09-05', serial_number:'KEN-2023-010', department:'Maintenance', problem:'Battery not holding charge', sent_to_vendor:false, vendor_name:'', repair_status:'In House Repair', date_sent:'', date_returned:'', warranty_claim:false, downtime_days:5, spare_issued:false, replacement_serial:'', notes:'New battery ordered' },
-];
-
-// ─── SUPABASE SQL (shown to user) ─────────────────────────────────
-const SQL_SCHEMA = `-- Run this in your Supabase SQL Editor
-
-create table radios (
-  id bigserial primary key,
-  radio_id text unique not null,
-  serial_number text unique not null,
-  make text,
-  model text,
-  department text default 'Unassigned',
-  status text default 'Spare',
-  location text,
-  in_service_date date,
-  purchase_date date,
-  warranty_expiration date,
-  condition text default 'Good',
-  is_spare boolean default false,
-  repair_needed boolean default false,
-  last_service_date date,
-  notes text,
-  created_at timestamptz default now()
-);
-
-create table assignment_log (
-  id bigserial primary key,
-  transaction_id text unique not null,
-  date date not null,
-  serial_number text not null,
-  from_department text,
-  to_department text,
-  prev_status text,
-  new_status text,
-  reason text,
-  approved_by text,
-  entered_by text,
-  notes text,
-  created_at timestamptz default now()
-);
-
-create table repair_log (
-  id bigserial primary key,
-  repair_id text unique not null,
-  date_reported date not null,
-  serial_number text not null,
-  department text,
-  problem text,
-  sent_to_vendor boolean default false,
-  vendor_name text,
-  repair_status text default 'Reported',
-  date_sent date,
-  date_returned date,
-  warranty_claim boolean default false,
-  downtime_days integer,
-  spare_issued boolean default false,
-  replacement_serial text,
-  notes text,
-  created_at timestamptz default now()
-);
-
--- Enable Row Level Security (optional but recommended)
-alter table radios enable row level security;
-alter table assignment_log enable row level security;
-alter table repair_log enable row level security;
-
--- Allow all operations for anon key (adjust per your needs)
-create policy "Allow all" on radios for all using (true) with check (true);
-create policy "Allow all" on assignment_log for all using (true) with check (true);
-create policy "Allow all" on repair_log for all using (true) with check (true);`;
-
 // ─── MAIN APP ─────────────────────────────────────────────────────
 function App() {
   const [tab, setTab] = useState('dashboard');
-  const [radios, setRadios] = useState(DEMO_RADIOS);
-  const [assignments, setAssignments] = useState(DEMO_ASSIGNMENTS);
-  const [repairs, setRepairs] = useState(DEMO_REPAIRS);
+  const [radios, setRadios] = useState([]);
+  const [assignments, setAssignments] = useState([]);
+  const [repairs, setRepairs] = useState([]);
   const [toast, setToast] = useState(null);
-  const [configured, setConfigured] = useState(!!supabase);
-  const [showSetup, setShowSetup] = useState(false);
-  const [showSQL, setShowSQL] = useState(false);
 
   const notify = (msg, type='success') => setToast({ msg, type });
 
@@ -277,16 +180,6 @@ function App() {
 
   // ── Radio CRUD ──
   const saveRadio = async (radio) => {
-    if (!supabase) {
-      if (radio.id) {
-        setRadios(prev => prev.map(r => r.id === radio.id ? radio : r));
-      } else {
-        const newR = { ...radio, id: Date.now() };
-        setRadios(prev => [...prev, newR]);
-      }
-      notify('Radio saved (demo mode)');
-      return;
-    }
     if (radio.id) {
       const { error } = await supabase.from('radios').update(radio).eq('id', radio.id);
       if (error) { notify(error.message, 'error'); return; }
@@ -299,17 +192,8 @@ function App() {
   };
 
   const saveAssignment = async (rec) => {
-    if (!supabase) {
-      setAssignments(prev => [{ ...rec, id: Date.now() }, ...prev]);
-      // update radio
-      setRadios(prev => prev.map(r => r.serial_number === rec.serial_number
-        ? { ...r, department: rec.to_department, status: rec.new_status } : r));
-      notify('Assignment logged (demo mode)');
-      return;
-    }
     const { error } = await supabase.from('assignment_log').insert([rec]);
     if (error) { notify(error.message, 'error'); return; }
-    // update radio
     await supabase.from('radios').update({ department: rec.to_department, status: rec.new_status })
       .eq('serial_number', rec.serial_number);
     loadData();
@@ -317,17 +201,6 @@ function App() {
   };
 
   const saveRepair = async (rec) => {
-    if (!supabase) {
-      if (rec.id) {
-        setRepairs(prev => prev.map(r => r.id === rec.id ? rec : r));
-      } else {
-        setRepairs(prev => [{ ...rec, id: Date.now() }, ...prev]);
-        setRadios(prev => prev.map(r => r.serial_number === rec.serial_number
-          ? { ...r, repair_needed: true, status: 'Out for Repair' } : r));
-      }
-      notify('Repair log saved (demo mode)');
-      return;
-    }
     if (rec.id) {
       const { error } = await supabase.from('repair_log').update(rec).eq('id', rec.id);
       if (error) { notify(error.message, 'error'); return; }
@@ -339,6 +212,13 @@ function App() {
     }
     loadData();
     notify('Repair log saved');
+  };
+
+  const deleteRadio = async (id) => {
+    const { error } = await supabase.from('radios').delete().eq('id', id);
+    if (error) { notify(error.message, 'error'); return; }
+    loadData();
+    notify('Radio deleted');
   };
 
   const tabs = [
@@ -370,41 +250,29 @@ function App() {
             </button>
           ))}
         </nav>
-        <div style={{ display:'flex', gap:8, alignItems:'center' }}>
-          {!configured && (
-            <span style={{ fontFamily:'var(--mono)', fontSize:11, color:'#fff', background:'rgba(212,98,26,0.85)', padding:'3px 8px', borderRadius:3, border:'1px solid #d4621a' }}>
-              ⚠ DEMO MODE
-            </span>
-          )}
-          <button className="btn btn-sm" style={{ background:'rgba(255,255,255,0.15)', color:'#fff', border:'1px solid rgba(255,255,255,0.3)' }} onClick={() => setShowSQL(true)}>SQL Schema</button>
-          <button className="btn btn-sm" style={{ background:'#d4621a', color:'#fff', border:'1px solid #b85115' }} onClick={() => setShowSetup(true)}>
-            {configured ? '✓ Connected' : 'Connect Supabase'}
-          </button>
-        </div>
       </header>
 
       {/* Body */}
       <main style={{ flex:1, overflow:'auto', padding:24 }}>
-        {tab === 'dashboard' && <Dashboard radios={radios} assignments={assignments} repairs={repairs} onEditRadio={saveRadio} />}
-        {tab === 'inventory' && <Inventory radios={radios} onSave={saveRadio} notify={notify} />}
+        {tab === 'dashboard' && <Dashboard radios={radios} assignments={assignments} repairs={repairs} onEditRadio={saveRadio} onDeleteRadio={deleteRadio} />}
+        {tab === 'inventory' && <Inventory radios={radios} onSave={saveRadio} onDelete={deleteRadio} notify={notify} />}
         {tab === 'assignments' && <Assignments assignments={assignments} radios={radios} onSave={saveAssignment} notify={notify} />}
         {tab === 'repairs' && <Repairs repairs={repairs} radios={radios} onSave={saveRepair} notify={notify} />}
         {tab === 'spares' && <Spares radios={radios} onSave={saveRadio} notify={notify} />}
       </main>
 
       {/* Modals */}
-      {showSetup && <SetupModal onClose={() => setShowSetup(false)} onSave={() => { setConfigured(true); setShowSetup(false); notify('Connected to Supabase'); }} />}
-      {showSQL && <SQLModal sql={SQL_SCHEMA} onClose={() => setShowSQL(false)} />}
       {toast && <Toast msg={toast.msg} type={toast.type} onClose={() => setToast(null)} />}
     </div>
   );
 }
 
 // ─── DASHBOARD ────────────────────────────────────────────────────
-function Dashboard({ radios, assignments, repairs, onEditRadio }) {
+function Dashboard({ radios, assignments, repairs, onEditRadio, onDeleteRadio }) {
   // activeFilter: { label, list, color } or null
   const [activeFilter, setActiveFilter] = useState(null);
   const [editingRadio, setEditingRadio] = useState(null);
+  const [confirmDelete, setConfirmDelete] = useState(null);
 
   const total = radios.length;
   const byDept = DEPARTMENTS.reduce((a,d) => ({ ...a, [d]: radios.filter(r=>r.department===d).length }), {});
@@ -455,7 +323,15 @@ function Dashboard({ radios, assignments, repairs, onEditRadio }) {
                     <td><Badge val={r.status} map={STATUS_COLORS} /></td>
                     <td style={{ color:'var(--text2)', fontSize:12 }}>{r.location||'—'}</td>
                     <td style={{ color:'var(--text2)', fontSize:12 }}>{r.condition||'—'}</td>
-                    <td><button className="btn btn-secondary btn-sm" onClick={() => setEditingRadio(r)}>Edit</button></td>
+                    <td>
+                      <div style={{ display:'flex', gap:6 }}>
+                        <button className="btn btn-secondary btn-sm" onClick={() => setEditingRadio(r)}>Edit</button>
+                        <button className="btn btn-sm" onClick={() => setConfirmDelete(r)}
+                          style={{ background:'transparent', color:'var(--danger)', border:'1px solid var(--danger)', borderRadius:4, fontSize:12, padding:'5px 10px' }}>
+                          Delete
+                        </button>
+                      </div>
+                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -601,17 +477,46 @@ function Dashboard({ radios, assignments, repairs, onEditRadio }) {
           onSave={async r => { await onEditRadio(r); setEditingRadio(null); }}
           onClose={() => setEditingRadio(null)} />
       )}
+
+      {/* Delete confirmation modal */}
+      {confirmDelete && (
+        <div className="modal-overlay" onClick={e=>e.stopPropagation()}>
+          <div className="modal" style={{ maxWidth:420 }}>
+            <div className="modal-header">
+              <span style={{ fontFamily:'var(--mono)', fontWeight:600, color:'var(--danger)' }}>⚠ Confirm Delete</span>
+            </div>
+            <div className="modal-body">
+              <p style={{ fontSize:14, color:'var(--text)', marginBottom:8 }}>
+                Are you sure you want to permanently delete this radio?
+              </p>
+              <div style={{ background:'var(--surface2)', border:'1px solid var(--border)', borderRadius:4, padding:'12px 14px', marginTop:12 }}>
+                <div style={{ fontFamily:'var(--mono)', fontSize:13, color:'var(--green)', marginBottom:4 }}>{confirmDelete.radio_id} — {confirmDelete.serial_number}</div>
+                <div style={{ fontSize:12, color:'var(--text2)' }}>{confirmDelete.make} {confirmDelete.model} · {confirmDelete.department} · {confirmDelete.status}</div>
+              </div>
+              <p style={{ fontSize:12, color:'var(--text3)', marginTop:12 }}>This action cannot be undone.</p>
+            </div>
+            <div className="modal-footer">
+              <button className="btn btn-secondary" onClick={() => setConfirmDelete(null)}>Cancel</button>
+              <button className="btn btn-sm" onClick={async () => { await onDeleteRadio(confirmDelete.id); setConfirmDelete(null); setActiveFilter(null); }}
+                style={{ background:'var(--danger)', color:'#fff', border:'1px solid var(--danger)', borderRadius:4, fontSize:13, padding:'8px 16px', fontWeight:500 }}>
+                Yes, Delete Radio
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
 
 // ─── INVENTORY ────────────────────────────────────────────────────
-function Inventory({ radios, onSave, notify }) {
+function Inventory({ radios, onSave, onDelete, notify }) {
   const [search, setSearch] = useState('');
   const [filterDept, setFilterDept] = useState('');
   const [filterStatus, setFilterStatus] = useState('');
   const [editing, setEditing] = useState(null);
   const [showForm, setShowForm] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(null);
 
   const filtered = useMemo(() => radios.filter(r =>
     (!search || r.serial_number?.toLowerCase().includes(search.toLowerCase()) || r.radio_id?.toLowerCase().includes(search.toLowerCase()) || r.make?.toLowerCase().includes(search.toLowerCase()) || r.model?.toLowerCase().includes(search.toLowerCase())) &&
@@ -621,6 +526,10 @@ function Inventory({ radios, onSave, notify }) {
 
   const openNew = () => { setEditing(null); setShowForm(true); };
   const openEdit = (r) => { setEditing(r); setShowForm(true); };
+  const handleDelete = async (r) => {
+    await onDelete(r.id);
+    setConfirmDelete(null);
+  };
 
   return (
     <div>
@@ -667,7 +576,13 @@ function Inventory({ radios, onSave, notify }) {
                     {r.repair_needed ? <span style={{ color:'var(--danger)' }}>●</span> : <span style={{ color:'#aaa' }}>○</span>}
                   </td>
                   <td>
-                    <button className="btn btn-secondary btn-sm" onClick={() => openEdit(r)}>Edit</button>
+                    <div style={{ display:'flex', gap:6 }}>
+                      <button className="btn btn-secondary btn-sm" onClick={() => openEdit(r)}>Edit</button>
+                      <button className="btn btn-sm" onClick={() => setConfirmDelete(r)}
+                        style={{ background:'transparent', color:'var(--danger)', border:'1px solid var(--danger)', borderRadius:4, fontSize:12, padding:'5px 10px' }}>
+                        Delete
+                      </button>
+                    </div>
                   </td>
                 </tr>
               ))}
@@ -679,6 +594,34 @@ function Inventory({ radios, onSave, notify }) {
         </div>
       </div>
       {showForm && <RadioForm radio={editing} radios={radios} onSave={async (r) => { await onSave(r); setShowForm(false); }} onClose={() => setShowForm(false)} />}
+
+      {/* Delete confirmation modal */}
+      {confirmDelete && (
+        <div className="modal-overlay" onClick={e=>e.stopPropagation()}>
+          <div className="modal" style={{ maxWidth:420 }}>
+            <div className="modal-header">
+              <span style={{ fontFamily:'var(--mono)', fontWeight:600, color:'var(--danger)' }}>⚠ Confirm Delete</span>
+            </div>
+            <div className="modal-body">
+              <p style={{ fontSize:14, color:'var(--text)', marginBottom:8 }}>
+                Are you sure you want to permanently delete this radio?
+              </p>
+              <div style={{ background:'var(--surface2)', border:'1px solid var(--border)', borderRadius:4, padding:'12px 14px', marginTop:12 }}>
+                <div style={{ fontFamily:'var(--mono)', fontSize:13, color:'var(--green)', marginBottom:4 }}>{confirmDelete.radio_id} — {confirmDelete.serial_number}</div>
+                <div style={{ fontSize:12, color:'var(--text2)' }}>{confirmDelete.make} {confirmDelete.model} · {confirmDelete.department} · {confirmDelete.status}</div>
+              </div>
+              <p style={{ fontSize:12, color:'var(--text3)', marginTop:12 }}>This action cannot be undone. The radio will be removed from the database permanently.</p>
+            </div>
+            <div className="modal-footer">
+              <button className="btn btn-secondary" onClick={() => setConfirmDelete(null)}>Cancel</button>
+              <button className="btn btn-sm" onClick={() => handleDelete(confirmDelete)}
+                style={{ background:'var(--danger)', color:'#fff', border:'1px solid var(--danger)', borderRadius:4, fontSize:13, padding:'8px 16px', fontWeight:500 }}>
+                Yes, Delete Radio
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -696,7 +639,7 @@ function RadioForm({ radio, radios, onSave, onClose }) {
   const set = (k,v) => setForm(f=>({...f,[k]:v}));
 
   return (
-    <div className="modal-overlay" onClick={e=>e.target===e.currentTarget&&onClose()}>
+    <div className="modal-overlay" onClick={e=>e.stopPropagation()}>
       <div className="modal">
         <div className="modal-header">
           <span style={{ fontFamily:'var(--mono)', fontWeight:600 }}>{radio ? 'Edit Radio' : 'Add New Radio'}</span>
@@ -807,7 +750,7 @@ function AssignmentForm({ radios, nextTxn, onSave, onClose }) {
   };
 
   return (
-    <div className="modal-overlay" onClick={e=>e.target===e.currentTarget&&onClose()}>
+    <div className="modal-overlay" onClick={e=>e.stopPropagation()}>
       <div className="modal">
         <div className="modal-header">
           <span style={{ fontFamily:'var(--mono)', fontWeight:600 }}>Log Assignment / Movement</span>
@@ -929,7 +872,7 @@ function RepairForm({ repair, radios, nextId, onSave, onClose }) {
   };
 
   return (
-    <div className="modal-overlay" onClick={e=>e.target===e.currentTarget&&onClose()}>
+    <div className="modal-overlay" onClick={e=>e.stopPropagation()}>
       <div className="modal">
         <div className="modal-header">
           <span style={{ fontFamily:'var(--mono)', fontWeight:600 }}>{repair ? 'Edit Repair' : 'Log New Repair'}</span>
@@ -1031,72 +974,6 @@ function Spares({ radios, onSave, notify }) {
             {spares.length === 0 && <tr><td colSpan={9} style={{ textAlign:'center', color:'var(--text3)', padding:40 }}>No spare radios in inventory</td></tr>}
           </tbody>
         </table>
-      </div>
-    </div>
-  );
-}
-
-// ─── SETUP MODAL ──────────────────────────────────────────────────
-function SetupModal({ onClose, onSave }) {
-  const [url, setUrl] = useState('');
-  const [key, setKey] = useState('');
-
-  const handleSave = () => {
-    if (!url || !key) { alert('Both fields required'); return; }
-    // Reload page with new config — in real deploy these would be env vars
-    alert('In production, set REACT_APP_SUPABASE_URL and REACT_APP_SUPABASE_ANON_KEY as environment variables in Vercel, then redeploy. For now, edit the SUPABASE_URL and SUPABASE_ANON_KEY constants at the top of the source file.');
-    onSave();
-  };
-
-  return (
-    <div className="modal-overlay" onClick={e=>e.target===e.currentTarget&&onClose()}>
-      <div className="modal" style={{ maxWidth:520 }}>
-        <div className="modal-header">
-          <span style={{ fontFamily:'var(--mono)', fontWeight:600 }}>Connect to Supabase</span>
-          <button className="btn btn-secondary btn-sm" onClick={onClose}>✕</button>
-        </div>
-        <div className="modal-body">
-          <div style={{ background:'#f0f7ef', border:'1px solid #b8d4b5', borderRadius:4, padding:14, marginBottom:20, fontSize:13, color:'var(--text2)', lineHeight:1.6 }}>
-            <strong style={{ color:'var(--green)', fontFamily:'var(--mono)' }}>Setup Instructions:</strong><br/><br/>
-            1. Create a free account at <strong>supabase.com</strong><br/>
-            2. Create a new project<br/>
-            3. Click <strong>SQL Editor</strong> and run the SQL schema (click "SQL Schema" button in header)<br/>
-            4. Go to <strong>Settings → API</strong> to find your URL and anon key<br/>
-            5. For Vercel deployment: add these as environment variables<br/>&nbsp;&nbsp;&nbsp;<code style={{ fontFamily:'var(--mono)', color:'var(--green)', fontSize:12 }}>VITE_SUPABASE_URL</code> and <code style={{ fontFamily:'var(--mono)', color:'var(--green)', fontSize:12 }}>VITE_SUPABASE_ANON_KEY</code>
-          </div>
-          <div className="form-grid">
-            <div className="form-group full"><label>Supabase Project URL</label><input placeholder="https://xxxx.supabase.co" value={url} onChange={e=>setUrl(e.target.value)} /></div>
-            <div className="form-group full"><label>Supabase Anon Key</label><input placeholder="eyJhbGci…" value={key} onChange={e=>setKey(e.target.value)} /></div>
-          </div>
-        </div>
-        <div className="modal-footer">
-          <button className="btn btn-secondary" onClick={onClose}>Cancel</button>
-          <button className="btn btn-primary" onClick={handleSave}>Save Configuration</button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// ─── SQL MODAL ────────────────────────────────────────────────────
-function SQLModal({ sql, onClose }) {
-  const [copied, setCopied] = useState(false);
-  const copy = () => { navigator.clipboard.writeText(sql); setCopied(true); setTimeout(()=>setCopied(false),2000); };
-
-  return (
-    <div className="modal-overlay" onClick={e=>e.target===e.currentTarget&&onClose()}>
-      <div className="modal" style={{ maxWidth:720 }}>
-        <div className="modal-header">
-          <span style={{ fontFamily:'var(--mono)', fontWeight:600 }}>Supabase SQL Schema</span>
-          <div style={{ display:'flex', gap:8 }}>
-            <button className="btn btn-primary btn-sm" onClick={copy}>{copied ? '✓ Copied' : 'Copy SQL'}</button>
-            <button className="btn btn-secondary btn-sm" onClick={onClose}>✕</button>
-          </div>
-        </div>
-        <div className="modal-body">
-          <p style={{ color:'var(--text2)', fontSize:13, marginBottom:12 }}>Run this in your Supabase project → SQL Editor → New query:</p>
-          <pre style={{ background:'#f7f3ee', border:'1px solid var(--border)', borderRadius:4, padding:16, fontFamily:'var(--mono)', fontSize:12, color:'#3a3a3a', overflowX:'auto', whiteSpace:'pre-wrap', lineHeight:1.6 }}>{sql}</pre>
-        </div>
       </div>
     </div>
   );
