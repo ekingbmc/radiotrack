@@ -1,0 +1,1109 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Bolke Miller RadioTrack — Two-Way Radio Management System</title>
+<script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+<script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+<script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --bg: #f2ede6;
+    --surface: #ffffff;
+    --surface2: #f7f3ee;
+    --border: #ddd6cc;
+    --border2: #c8bfb2;
+    --accent: #2d5a27;
+    --accent-hover: #234820;
+    --accent2: #d4621a;
+    --accent2-hover: #b85115;
+    --accent3: #2d5a27;
+    --text: #1e1e1e;
+    --text2: #4a4a4a;
+    --text3: #888880;
+    --danger: #c0392b;
+    --warning: #d4621a;
+    --success: #2d5a27;
+    --tan: #c9b89a;
+    --tan-light: #e8ddd0;
+    --green: #2d5a27;
+    --orange: #d4621a;
+    --mono: 'IBM Plex Mono', monospace;
+    --sans: 'IBM Plex Sans', sans-serif;
+  }
+  html, body, #root { height: 100%; }
+  body { background: var(--bg); color: var(--text); font-family: var(--sans); font-size: 14px; }
+  ::-webkit-scrollbar { width: 6px; height: 6px; }
+  ::-webkit-scrollbar-track { background: var(--bg); }
+  ::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 3px; }
+  input, select, textarea {
+    background: #fff; border: 1px solid var(--border2); color: var(--text);
+    font-family: var(--sans); font-size: 13px; padding: 8px 10px; border-radius: 4px;
+    outline: none; transition: border-color 0.15s;
+  }
+  input:focus, select:focus, textarea:focus { border-color: var(--accent); box-shadow: 0 0 0 2px rgba(45,90,39,0.12); }
+  select option { background: #fff; color: var(--text); }
+  button { cursor: pointer; font-family: var(--sans); transition: all 0.15s; }
+  .btn {
+    padding: 8px 16px; border-radius: 4px; font-size: 13px; font-weight: 500;
+    border: 1px solid transparent; display: inline-flex; align-items: center; gap: 6px;
+  }
+  .btn-primary { background: var(--accent); color: #fff; border-color: var(--accent); }
+  .btn-primary:hover { background: var(--accent-hover); border-color: var(--accent-hover); }
+  .btn-secondary { background: #fff; color: var(--text2); border-color: var(--border2); }
+  .btn-secondary:hover { border-color: var(--accent); color: var(--accent); }
+  .btn-danger { background: transparent; color: var(--danger); border-color: var(--danger); }
+  .btn-danger:hover { background: var(--danger); color: #fff; }
+  .btn-sm { padding: 5px 10px; font-size: 12px; }
+  .badge {
+    display: inline-block; padding: 2px 8px; border-radius: 3px; font-size: 11px;
+    font-family: var(--mono); font-weight: 500; letter-spacing: 0.05em;
+  }
+  table { width: 100%; border-collapse: collapse; }
+  th { font-family: var(--mono); font-size: 11px; color: var(--text3); text-transform: uppercase;
+    letter-spacing: 0.08em; padding: 10px 12px; text-align: left; border-bottom: 2px solid var(--border); font-weight: 600;
+    background: var(--surface2); }
+  td { padding: 10px 12px; border-bottom: 1px solid var(--border); font-size: 13px; vertical-align: middle; }
+  tr:hover td { background: #faf7f3; }
+  .modal-overlay {
+    position: fixed; inset: 0; background: rgba(0,0,0,0.45); z-index: 100;
+    display: flex; align-items: center; justify-content: center; padding: 20px;
+  }
+  .modal {
+    background: var(--surface); border: 1px solid var(--border2); border-radius: 8px;
+    width: 100%; max-width: 680px; max-height: 90vh; overflow-y: auto;
+    box-shadow: 0 8px 40px rgba(0,0,0,0.18);
+  }
+  .modal-header {
+    padding: 20px 24px; border-bottom: 1px solid var(--border); background: var(--surface2);
+    display: flex; align-items: center; justify-content: space-between; border-radius: 8px 8px 0 0;
+  }
+  .modal-body { padding: 24px; }
+  .modal-footer { padding: 16px 24px; border-top: 1px solid var(--border); display: flex; gap: 8px; justify-content: flex-end; background: var(--surface2); border-radius: 0 0 8px 8px; }
+  .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  .form-group { display: flex; flex-direction: column; gap: 6px; }
+  .form-group.full { grid-column: 1 / -1; }
+  .form-group label { font-size: 11px; color: var(--text2); font-family: var(--mono); text-transform: uppercase; letter-spacing: 0.06em; }
+  .form-group input, .form-group select, .form-group textarea { width: 100%; }
+  .toast {
+    position: fixed; bottom: 24px; right: 24px; z-index: 200;
+    background: #fff; border: 1px solid var(--border2); border-radius: 6px;
+    padding: 12px 18px; font-size: 13px; display: flex; align-items: center; gap: 10px;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.15); color: var(--text);
+  }
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel">
+const { useState, useEffect, useCallback, useMemo } = React;
+
+// ─── SUPABASE CONFIG ──────────────────────────────────────────────
+// Replace these with your actual Supabase project URL and anon key
+const SUPABASE_URL = 'https://yndniceqvedkzjrxtoqt.supabase.co';
+const SUPABASE_ANON_KEY = 'sb_publishable_JT3jSQp5gsxTdNfM30X-6A_Ct3MT3pB';
+
+let supabase = null;
+try {
+  if (SUPABASE_URL !== 'https://yndniceqvedkzjrxtoqt.supabase.co') {
+    supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+  }
+} catch(e) {}
+
+// ─── CONSTANTS ────────────────────────────────────────────────────
+const STATUSES = ['In Service','Assigned','Spare','Out for Repair','Under Repair','Retired','Lost','Missing'];
+const DEPARTMENTS = ['Production','Maintenance','Logistics','Unassigned'];
+const REPAIR_STATUSES = ['Reported','Awaiting Shipment','At Vendor','In House Repair','Repaired','Returned to Stock','Scrapped'];
+const CONDITIONS = ['Excellent','Good','Fair','Poor','Damaged'];
+
+const STATUS_COLORS = {
+  'In Service':    { bg:'#d6ecd4', color:'#1e4a1a', border:'#8fbc8a' },
+  'Assigned':      { bg:'#d4e8d4', color:'#2d5a27', border:'#7aaa74' },
+  'Spare':         { bg:'#fdebd6', color:'#7a3210', border:'#e8a87a' },
+  'Out for Repair':{ bg:'#fce8d6', color:'#7a2e0a', border:'#e8956a' },
+  'Under Repair':  { bg:'#fce8d6', color:'#7a2e0a', border:'#e8956a' },
+  'Retired':       { bg:'#ebebeb', color:'#666', border:'#ccc' },
+  'Lost':          { bg:'#fdd6d6', color:'#7a1a1a', border:'#e89090' },
+  'Missing':       { bg:'#fdd6d6', color:'#7a1a1a', border:'#e89090' },
+};
+const DEPT_COLORS = {
+  'Production':  { bg:'#e8d6f5', color:'#4a1a7a', border:'#c0a0e0' },
+  'Maintenance': { bg:'#d6e8f5', color:'#1a3a6a', border:'#90b8e0' },
+  'Logistics':   { bg:'#d6ecd4', color:'#1e4a1a', border:'#8fbc8a' },
+  'Unassigned':  { bg:'#ebebeb', color:'#666', border:'#ccc' },
+};
+
+function Badge({ val, map }) {
+  const s = (map || STATUS_COLORS)[val] || { bg:'#222', color:'#888', border:'#333' };
+  return <span className="badge" style={{ background: s.bg, color: s.color, border:`1px solid ${s.border}` }}>{val}</span>;
+}
+
+// ─── TOAST ────────────────────────────────────────────────────────
+function Toast({ msg, type, onClose }) {
+  useEffect(() => { const t = setTimeout(onClose, 3000); return () => clearTimeout(t); }, []);
+  const color = type === 'error' ? '#c0392b' : type === 'warn' ? '#d4621a' : '#2d5a27';
+  return (
+    <div className="toast">
+      <span style={{ color, fontSize:16 }}>{type==='error'?'✕':type==='warn'?'⚠':'✓'}</span>
+      <span>{msg}</span>
+    </div>
+  );
+}
+
+// ─── DEMO DATA ────────────────────────────────────────────────────
+const DEMO_RADIOS = [
+  { id:1, radio_id:'RD-001', serial_number:'MOT-2024-001', make:'Motorola', model:'DP4800', department:'Production', status:'Assigned', location:'Line A', in_service_date:'2024-01-15', purchase_date:'2024-01-10', warranty_expiration:'2027-01-10', condition:'Good', is_spare:false, repair_needed:false, last_service_date:'2024-11-01', notes:'' },
+  { id:2, radio_id:'RD-002', serial_number:'MOT-2024-002', make:'Motorola', model:'DP4800', department:'Production', status:'Assigned', location:'Line B', in_service_date:'2024-01-15', purchase_date:'2024-01-10', warranty_expiration:'2027-01-10', condition:'Good', is_spare:false, repair_needed:false, last_service_date:'2024-11-01', notes:'' },
+  { id:3, radio_id:'RD-003', serial_number:'KEN-2023-010', make:'Kenwood', model:'NX-3300', department:'Maintenance', status:'Assigned', location:'Shop Floor', in_service_date:'2023-06-01', purchase_date:'2023-05-20', warranty_expiration:'2026-05-20', condition:'Fair', is_spare:false, repair_needed:true, last_service_date:'2024-08-15', notes:'Battery degrading' },
+  { id:4, radio_id:'RD-004', serial_number:'KEN-2023-011', make:'Kenwood', model:'NX-3300', department:'Logistics', status:'Assigned', location:'Warehouse', in_service_date:'2023-06-01', purchase_date:'2023-05-20', warranty_expiration:'2026-05-20', condition:'Good', is_spare:false, repair_needed:false, last_service_date:'2024-10-01', notes:'' },
+  { id:5, radio_id:'RD-005', serial_number:'MOT-2024-003', make:'Motorola', model:'DP4400', department:'Unassigned', status:'Spare', location:'Cage', in_service_date:'2024-03-01', purchase_date:'2024-02-28', warranty_expiration:'2027-02-28', condition:'Excellent', is_spare:true, repair_needed:false, last_service_date:'2024-12-01', notes:'Ready to deploy' },
+  { id:6, radio_id:'RD-006', serial_number:'HYT-2022-055', make:'Hytera', model:'PD782', department:'Unassigned', status:'Out for Repair', location:'Vendor', in_service_date:'2022-09-01', purchase_date:'2022-08-15', warranty_expiration:'2025-08-15', condition:'Damaged', is_spare:false, repair_needed:true, last_service_date:'2024-09-01', notes:'Dropped, speaker broken' },
+  { id:7, radio_id:'RD-007', serial_number:'MOT-2024-004', make:'Motorola', model:'DP4400', department:'Unassigned', status:'Spare', location:'Cage', in_service_date:'2024-03-01', purchase_date:'2024-02-28', warranty_expiration:'2027-02-28', condition:'Good', is_spare:true, repair_needed:false, last_service_date:'2024-12-01', notes:'' },
+  { id:8, radio_id:'RD-008', serial_number:'KEN-2021-003', make:'Kenwood', model:'NX-3200', department:'Unassigned', status:'Retired', location:'Storage', in_service_date:'2021-01-01', purchase_date:'2020-12-15', warranty_expiration:'2023-12-15', condition:'Poor', is_spare:false, repair_needed:false, last_service_date:'2024-01-01', notes:'End of life' },
+];
+
+const DEMO_ASSIGNMENTS = [
+  { id:1, transaction_id:'TXN-001', date:'2024-01-15', serial_number:'MOT-2024-001', from_department:'Unassigned', to_department:'Production', prev_status:'Spare', new_status:'Assigned', reason:'Initial deployment', approved_by:'J. Smith', entered_by:'Admin', notes:'' },
+  { id:2, transaction_id:'TXN-002', date:'2024-06-10', serial_number:'KEN-2023-010', from_department:'Logistics', to_department:'Maintenance', prev_status:'Assigned', new_status:'Assigned', reason:'Department restructure', approved_by:'M. Johnson', entered_by:'Admin', notes:'' },
+  { id:3, transaction_id:'TXN-003', date:'2024-11-20', serial_number:'HYT-2022-055', from_department:'Production', to_department:'Unassigned', prev_status:'Assigned', new_status:'Out for Repair', reason:'Sent to vendor for repair', approved_by:'J. Smith', entered_by:'Admin', notes:'Speaker failure' },
+];
+
+const DEMO_REPAIRS = [
+  { id:1, repair_id:'REP-001', date_reported:'2024-11-18', serial_number:'HYT-2022-055', department:'Production', problem:'Speaker broken after drop', sent_to_vendor:true, vendor_name:'RadioFix Pro', repair_status:'At Vendor', date_sent:'2024-11-20', date_returned:'', warranty_claim:false, downtime_days:40, spare_issued:true, replacement_serial:'MOT-2024-003', notes:'Awaiting estimate' },
+  { id:2, repair_id:'REP-002', date_reported:'2024-09-05', serial_number:'KEN-2023-010', department:'Maintenance', problem:'Battery not holding charge', sent_to_vendor:false, vendor_name:'', repair_status:'In House Repair', date_sent:'', date_returned:'', warranty_claim:false, downtime_days:5, spare_issued:false, replacement_serial:'', notes:'New battery ordered' },
+];
+
+// ─── SUPABASE SQL (shown to user) ─────────────────────────────────
+const SQL_SCHEMA = `-- Run this in your Supabase SQL Editor
+
+create table radios (
+  id bigserial primary key,
+  radio_id text unique not null,
+  serial_number text unique not null,
+  make text,
+  model text,
+  department text default 'Unassigned',
+  status text default 'Spare',
+  location text,
+  in_service_date date,
+  purchase_date date,
+  warranty_expiration date,
+  condition text default 'Good',
+  is_spare boolean default false,
+  repair_needed boolean default false,
+  last_service_date date,
+  notes text,
+  created_at timestamptz default now()
+);
+
+create table assignment_log (
+  id bigserial primary key,
+  transaction_id text unique not null,
+  date date not null,
+  serial_number text not null,
+  from_department text,
+  to_department text,
+  prev_status text,
+  new_status text,
+  reason text,
+  approved_by text,
+  entered_by text,
+  notes text,
+  created_at timestamptz default now()
+);
+
+create table repair_log (
+  id bigserial primary key,
+  repair_id text unique not null,
+  date_reported date not null,
+  serial_number text not null,
+  department text,
+  problem text,
+  sent_to_vendor boolean default false,
+  vendor_name text,
+  repair_status text default 'Reported',
+  date_sent date,
+  date_returned date,
+  warranty_claim boolean default false,
+  downtime_days integer,
+  spare_issued boolean default false,
+  replacement_serial text,
+  notes text,
+  created_at timestamptz default now()
+);
+
+-- Enable Row Level Security (optional but recommended)
+alter table radios enable row level security;
+alter table assignment_log enable row level security;
+alter table repair_log enable row level security;
+
+-- Allow all operations for anon key (adjust per your needs)
+create policy "Allow all" on radios for all using (true) with check (true);
+create policy "Allow all" on assignment_log for all using (true) with check (true);
+create policy "Allow all" on repair_log for all using (true) with check (true);`;
+
+// ─── MAIN APP ─────────────────────────────────────────────────────
+function App() {
+  const [tab, setTab] = useState('dashboard');
+  const [radios, setRadios] = useState(DEMO_RADIOS);
+  const [assignments, setAssignments] = useState(DEMO_ASSIGNMENTS);
+  const [repairs, setRepairs] = useState(DEMO_REPAIRS);
+  const [toast, setToast] = useState(null);
+  const [configured, setConfigured] = useState(!!supabase);
+  const [showSetup, setShowSetup] = useState(false);
+  const [showSQL, setShowSQL] = useState(false);
+
+  const notify = (msg, type='success') => setToast({ msg, type });
+
+  // ── Supabase loaders ──
+  const loadData = useCallback(async () => {
+    if (!supabase) return;
+    const [r, a, rep] = await Promise.all([
+      supabase.from('radios').select('*').order('radio_id'),
+      supabase.from('assignment_log').select('*').order('date', { ascending: false }),
+      supabase.from('repair_log').select('*').order('date_reported', { ascending: false }),
+    ]);
+    if (r.data) setRadios(r.data);
+    if (a.data) setAssignments(a.data);
+    if (rep.data) setRepairs(rep.data);
+  }, []);
+
+  useEffect(() => { loadData(); }, [loadData]);
+
+  // ── Radio CRUD ──
+  const saveRadio = async (radio) => {
+    if (!supabase) {
+      if (radio.id) {
+        setRadios(prev => prev.map(r => r.id === radio.id ? radio : r));
+      } else {
+        const newR = { ...radio, id: Date.now() };
+        setRadios(prev => [...prev, newR]);
+      }
+      notify('Radio saved (demo mode)');
+      return;
+    }
+    if (radio.id) {
+      const { error } = await supabase.from('radios').update(radio).eq('id', radio.id);
+      if (error) { notify(error.message, 'error'); return; }
+    } else {
+      const { error } = await supabase.from('radios').insert([radio]);
+      if (error) { notify(error.message, 'error'); return; }
+    }
+    loadData();
+    notify('Radio saved');
+  };
+
+  const saveAssignment = async (rec) => {
+    if (!supabase) {
+      setAssignments(prev => [{ ...rec, id: Date.now() }, ...prev]);
+      // update radio
+      setRadios(prev => prev.map(r => r.serial_number === rec.serial_number
+        ? { ...r, department: rec.to_department, status: rec.new_status } : r));
+      notify('Assignment logged (demo mode)');
+      return;
+    }
+    const { error } = await supabase.from('assignment_log').insert([rec]);
+    if (error) { notify(error.message, 'error'); return; }
+    // update radio
+    await supabase.from('radios').update({ department: rec.to_department, status: rec.new_status })
+      .eq('serial_number', rec.serial_number);
+    loadData();
+    notify('Assignment logged');
+  };
+
+  const saveRepair = async (rec) => {
+    if (!supabase) {
+      if (rec.id) {
+        setRepairs(prev => prev.map(r => r.id === rec.id ? rec : r));
+      } else {
+        setRepairs(prev => [{ ...rec, id: Date.now() }, ...prev]);
+        setRadios(prev => prev.map(r => r.serial_number === rec.serial_number
+          ? { ...r, repair_needed: true, status: 'Out for Repair' } : r));
+      }
+      notify('Repair log saved (demo mode)');
+      return;
+    }
+    if (rec.id) {
+      const { error } = await supabase.from('repair_log').update(rec).eq('id', rec.id);
+      if (error) { notify(error.message, 'error'); return; }
+    } else {
+      const { error } = await supabase.from('repair_log').insert([rec]);
+      if (error) { notify(error.message, 'error'); return; }
+      await supabase.from('radios').update({ repair_needed: true, status: 'Out for Repair' })
+        .eq('serial_number', rec.serial_number);
+    }
+    loadData();
+    notify('Repair log saved');
+  };
+
+  const tabs = [
+    { id:'dashboard', label:'Dashboard', icon:'◈' },
+    { id:'inventory', label:'Radio Inventory', icon:'▦' },
+    { id:'assignments', label:'Assignment Log', icon:'⇄' },
+    { id:'repairs', label:'Repair Log', icon:'⚙' },
+    { id:'spares', label:'Spare Inventory', icon:'◻' },
+  ];
+
+  return (
+    <div style={{ display:'flex', flexDirection:'column', height:'100vh' }}>
+      {/* Header */}
+      <header style={{ background: '#2d5a27', borderBottom:'3px solid #d4621a', padding:'0 24px', display:'flex', alignItems:'center', gap:24, height:54, flexShrink:0 }}>
+        <div style={{ display:'flex', alignItems:'center', gap:10 }}>
+          <span style={{ fontFamily:'var(--mono)', color:'#d4621a', fontSize:18, fontWeight:600 }}>◈</span>
+          <span style={{ fontFamily:'var(--mono)', fontWeight:600, fontSize:15, letterSpacing:'0.05em', color:'#fff' }}>BOLKE MILLER RADIOTRACK</span>
+          <span style={{ fontFamily:'var(--mono)', fontSize:10, color:'rgba(255,255,255,0.5)', marginLeft:2 }}>v1.0</span>
+        </div>
+        <nav style={{ display:'flex', gap:2, flex:1 }}>
+          {tabs.map(t => (
+            <button key={t.id} onClick={() => setTab(t.id)}
+              style={{ background: tab===t.id ? 'rgba(255,255,255,0.15)' : 'transparent',
+                border: 'none', color: tab===t.id ? '#fff' : 'rgba(255,255,255,0.7)',
+                padding:'6px 14px', borderRadius:4, fontFamily:'var(--sans)', fontSize:13,
+                fontWeight: tab===t.id ? 600 : 400, display:'flex', alignItems:'center', gap:6,
+                borderBottom: tab===t.id ? '2px solid #d4621a' : '2px solid transparent' }}>
+              <span style={{ fontSize:11 }}>{t.icon}</span>{t.label}
+            </button>
+          ))}
+        </nav>
+        <div style={{ display:'flex', gap:8, alignItems:'center' }}>
+          {!configured && (
+            <span style={{ fontFamily:'var(--mono)', fontSize:11, color:'#fff', background:'rgba(212,98,26,0.85)', padding:'3px 8px', borderRadius:3, border:'1px solid #d4621a' }}>
+              ⚠ DEMO MODE
+            </span>
+          )}
+          <button className="btn btn-sm" style={{ background:'rgba(255,255,255,0.15)', color:'#fff', border:'1px solid rgba(255,255,255,0.3)' }} onClick={() => setShowSQL(true)}>SQL Schema</button>
+          <button className="btn btn-sm" style={{ background:'#d4621a', color:'#fff', border:'1px solid #b85115' }} onClick={() => setShowSetup(true)}>
+            {configured ? '✓ Connected' : 'Connect Supabase'}
+          </button>
+        </div>
+      </header>
+
+      {/* Body */}
+      <main style={{ flex:1, overflow:'auto', padding:24 }}>
+        {tab === 'dashboard' && <Dashboard radios={radios} assignments={assignments} repairs={repairs} onEditRadio={saveRadio} />}
+        {tab === 'inventory' && <Inventory radios={radios} onSave={saveRadio} notify={notify} />}
+        {tab === 'assignments' && <Assignments assignments={assignments} radios={radios} onSave={saveAssignment} notify={notify} />}
+        {tab === 'repairs' && <Repairs repairs={repairs} radios={radios} onSave={saveRepair} notify={notify} />}
+        {tab === 'spares' && <Spares radios={radios} onSave={saveRadio} notify={notify} />}
+      </main>
+
+      {/* Modals */}
+      {showSetup && <SetupModal onClose={() => setShowSetup(false)} onSave={() => { setConfigured(true); setShowSetup(false); notify('Connected to Supabase'); }} />}
+      {showSQL && <SQLModal sql={SQL_SCHEMA} onClose={() => setShowSQL(false)} />}
+      {toast && <Toast msg={toast.msg} type={toast.type} onClose={() => setToast(null)} />}
+    </div>
+  );
+}
+
+// ─── DASHBOARD ────────────────────────────────────────────────────
+function Dashboard({ radios, assignments, repairs, onEditRadio }) {
+  // activeFilter: { label, list, color } or null
+  const [activeFilter, setActiveFilter] = useState(null);
+  const [editingRadio, setEditingRadio] = useState(null);
+
+  const total = radios.length;
+  const byDept = DEPARTMENTS.reduce((a,d) => ({ ...a, [d]: radios.filter(r=>r.department===d).length }), {});
+  const inRepairList = radios.filter(r=>['Out for Repair','Under Repair'].includes(r.status));
+  const spareList = radios.filter(r=>r.is_spare || r.status==='Spare');
+  const missingList = radios.filter(r=>['Lost','Missing'].includes(r.status));
+  const repairNeeded = radios.filter(r=>r.repair_needed).length;
+  const openRepairs = repairs.filter(r=>!['Repaired','Returned to Stock','Scrapped'].includes(r.repair_status));
+  const oldest = [...openRepairs].sort((a,b)=>new Date(a.date_reported)-new Date(b.date_reported))[0];
+  const now = new Date();
+  const thisMonth = repairs.filter(r => {
+    const d = new Date(r.date_reported);
+    return d.getMonth()===now.getMonth() && d.getFullYear()===now.getFullYear();
+  });
+
+  const setFilter = (label, list, color) => {
+    if (activeFilter && activeFilter.label === label) { setActiveFilter(null); return; }
+    setActiveFilter({ label, list, color });
+  };
+
+  // ── Reusable filtered radio table ──
+  const FilteredTable = () => {
+    if (!activeFilter) return null;
+    const { label, list, color } = activeFilter;
+    return (
+      <div style={{ background:'var(--surface)', border:`2px solid ${color}`, borderRadius:6, marginBottom:20, overflow:'hidden' }}>
+        <div style={{ padding:'12px 16px', borderBottom:'1px solid var(--border)', background:'var(--surface2)', display:'flex', justifyContent:'space-between', alignItems:'center' }}>
+          <span style={{ fontFamily:'var(--mono)', fontSize:12, fontWeight:600, color, textTransform:'uppercase', letterSpacing:'0.06em' }}>
+            {label} — {list.length} radio{list.length!==1?'s':''}
+          </span>
+          <button className="btn btn-secondary btn-sm" onClick={() => setActiveFilter(null)}>✕ Close</button>
+        </div>
+        {list.length === 0 ? (
+          <div style={{ padding:32, textAlign:'center', color:'var(--text3)', fontSize:13 }}>No radios in this category.</div>
+        ) : (
+          <div style={{ overflowX:'auto' }}>
+            <table>
+              <thead>
+                <tr>{['Radio ID','Serial Number','Make / Model','Department','Status','Location','Condition','Actions'].map(h=><th key={h}>{h}</th>)}</tr>
+              </thead>
+              <tbody>
+                {list.map(r => (
+                  <tr key={r.id}>
+                    <td><span style={{ fontFamily:'var(--mono)', color:'var(--green)', fontSize:12 }}>{r.radio_id}</span></td>
+                    <td><span style={{ fontFamily:'var(--mono)', fontSize:12 }}>{r.serial_number}</span></td>
+                    <td style={{ color:'var(--text2)' }}>{r.make} {r.model}</td>
+                    <td><Badge val={r.department} map={DEPT_COLORS} /></td>
+                    <td><Badge val={r.status} map={STATUS_COLORS} /></td>
+                    <td style={{ color:'var(--text2)', fontSize:12 }}>{r.location||'—'}</td>
+                    <td style={{ color:'var(--text2)', fontSize:12 }}>{r.condition||'—'}</td>
+                    <td><button className="btn btn-secondary btn-sm" onClick={() => setEditingRadio(r)}>Edit</button></td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+    );
+  };
+
+  // ── Top summary cards ──
+  const SummaryCard = ({ label, value, sub, color, list }) => {
+    const isActive = activeFilter?.label === label;
+    return (
+      <div onClick={() => setFilter(label, list, color)}
+        style={{ background: isActive ? color : 'var(--surface)',
+          border:`2px solid ${isActive ? color : 'var(--border)'}`,
+          borderRadius:6, padding:'16px 20px', borderLeft:`4px solid ${color}`,
+          cursor:'pointer', transition:'all 0.15s',
+          boxShadow: isActive ? `0 2px 12px ${color}33` : 'none' }}>
+        <div style={{ fontFamily:'var(--mono)', fontSize:11, color: isActive ? 'rgba(255,255,255,0.8)' : 'var(--text3)', marginBottom:6, textTransform:'uppercase', letterSpacing:'0.07em' }}>{label}</div>
+        <div style={{ fontFamily:'var(--mono)', fontSize:28, fontWeight:600, color: isActive ? '#fff' : color }}>{value}</div>
+        {sub && <div style={{ fontSize:11, color: isActive ? 'rgba(255,255,255,0.7)' : 'var(--text3)', marginTop:4 }}>{sub}</div>}
+        <div style={{ fontSize:11, color: isActive ? 'rgba(255,255,255,0.65)' : 'var(--text3)', marginTop:6, fontFamily:'var(--mono)' }}>
+          {isActive ? '▲ hide list' : '▼ view list'}
+        </div>
+      </div>
+    );
+  };
+
+  return (
+    <div>
+      <div style={{ marginBottom:20 }}>
+        <div style={{ fontFamily:'var(--mono)', fontSize:12, color:'var(--text3)', marginBottom:4 }}>SYSTEM OVERVIEW</div>
+        <h2 style={{ fontSize:20, fontWeight:500, color:'var(--text)' }}>Dashboard</h2>
+      </div>
+
+      {/* Top summary cards */}
+      <div style={{ display:'grid', gridTemplateColumns:'repeat(4,1fr)', gap:12, marginBottom:16 }}>
+        <SummaryCard label="All Radios"    value={total}               sub="All assets tracked"             color="var(--green)"  list={radios} />
+        <SummaryCard label="In Repair"     value={inRepairList.length} sub={`${repairNeeded} flagged repair needed`} color="var(--orange)" list={inRepairList} />
+        <SummaryCard label="Spare Units"   value={spareList.length}    sub="Ready to deploy"                color="#8a6a3a"       list={spareList} />
+        <SummaryCard label="Lost/Missing"  value={missingList.length}  sub="Requires investigation"         color="var(--danger)" list={missingList} />
+      </div>
+
+      {/* Filtered list (shared by all clickable elements) */}
+      <FilteredTable />
+
+      <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:16 }}>
+
+        {/* By Department — each row clickable */}
+        <div style={{ background:'var(--surface)', border:'1px solid var(--border)', borderRadius:6, padding:20 }}>
+          <div style={{ fontFamily:'var(--mono)', fontSize:11, color:'var(--text3)', marginBottom:4, textTransform:'uppercase', letterSpacing:'0.07em' }}>Radios by Department</div>
+          <div style={{ fontSize:11, color:'var(--text3)', marginBottom:14 }}>Click a department to view its radios</div>
+          {DEPARTMENTS.map(d => {
+            const list = radios.filter(r=>r.department===d);
+            const count = list.length;
+            const pct = total > 0 ? (count/total*100) : 0;
+            const c = DEPT_COLORS[d];
+            const isActive = activeFilter?.label === d;
+            return (
+              <div key={d} onClick={() => setFilter(d, list, c.color)}
+                style={{ marginBottom:10, padding:'8px 10px', borderRadius:5, cursor:'pointer',
+                  background: isActive ? c.bg : 'transparent',
+                  border: `1px solid ${isActive ? c.border : 'transparent'}`,
+                  transition:'all 0.12s' }}>
+                <div style={{ display:'flex', justifyContent:'space-between', marginBottom:5 }}>
+                  <span style={{ fontSize:13, color: isActive ? c.color : 'var(--text2)', fontWeight: isActive ? 600 : 400 }}>{d}</span>
+                  <span style={{ fontFamily:'var(--mono)', fontSize:13, color: c.color }}>{count} {isActive ? '▲' : '▼'}</span>
+                </div>
+                <div style={{ background:'var(--border)', borderRadius:2, height:5 }}>
+                  <div style={{ background: c.color, width:`${pct}%`, height:'100%', borderRadius:2, transition:'width 0.3s' }} />
+                </div>
+              </div>
+            );
+          })}
+        </div>
+
+        {/* Status Breakdown — each row clickable */}
+        <div style={{ background:'var(--surface)', border:'1px solid var(--border)', borderRadius:6, padding:20 }}>
+          <div style={{ fontFamily:'var(--mono)', fontSize:11, color:'var(--text3)', marginBottom:4, textTransform:'uppercase', letterSpacing:'0.07em' }}>Status Breakdown</div>
+          <div style={{ fontSize:11, color:'var(--text3)', marginBottom:14 }}>Click a status to view those radios</div>
+          {STATUSES.map(s => {
+            const list = radios.filter(r=>r.status===s);
+            const count = list.length;
+            if (!count) return null;
+            const c = STATUS_COLORS[s] || { color:'#888', bg:'#eee', border:'#ccc' };
+            const isActive = activeFilter?.label === s;
+            return (
+              <div key={s} onClick={() => setFilter(s, list, c.color)}
+                style={{ display:'flex', justifyContent:'space-between', alignItems:'center',
+                  padding:'8px 10px', borderRadius:5, cursor:'pointer',
+                  background: isActive ? c.bg : 'transparent',
+                  border: `1px solid ${isActive ? c.border : 'transparent'}`,
+                  marginBottom:2, transition:'all 0.12s' }}>
+                <div style={{ display:'flex', alignItems:'center', gap:8 }}>
+                  <Badge val={s} map={STATUS_COLORS} />
+                  {isActive && <span style={{ fontSize:11, color: c.color, fontFamily:'var(--mono)' }}>▲</span>}
+                </div>
+                <span style={{ fontFamily:'var(--mono)', fontSize:13, color:'var(--text)', fontWeight: isActive ? 600 : 400 }}>{count}</span>
+              </div>
+            );
+          })}
+        </div>
+
+        {/* Repair Summary */}
+        <div style={{ background:'var(--surface)', border:'1px solid var(--border)', borderRadius:6, padding:20 }}>
+          <div style={{ fontFamily:'var(--mono)', fontSize:11, color:'var(--text3)', marginBottom:16, textTransform:'uppercase', letterSpacing:'0.07em' }}>Repair Summary</div>
+          <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:12 }}>
+            {[
+              { l:'Open Repairs',  v:openRepairs.length,   c:'var(--orange)' },
+              { l:'This Month',    v:thisMonth.length,      c:'var(--text)' },
+              { l:'Oldest Open',   v: oldest ? `${Math.floor((Date.now()-new Date(oldest.date_reported))/(1000*60*60*24))}d` : '—', c:'var(--danger)' },
+              { l:'Repair Needed', v:repairNeeded,          c:'#8a6a3a' },
+            ].map(i => (
+              <div key={i.l} style={{ background:'var(--surface2)', borderRadius:4, padding:'12px 14px', border:'1px solid var(--border)' }}>
+                <div style={{ fontSize:11, color:'var(--text3)', marginBottom:4 }}>{i.l}</div>
+                <div style={{ fontFamily:'var(--mono)', fontSize:20, fontWeight:600, color:i.c }}>{i.v}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Recent Assignments */}
+        <div style={{ background:'var(--surface)', border:'1px solid var(--border)', borderRadius:6, padding:20 }}>
+          <div style={{ fontFamily:'var(--mono)', fontSize:11, color:'var(--text3)', marginBottom:16, textTransform:'uppercase', letterSpacing:'0.07em' }}>Recent Assignments</div>
+          {assignments.slice(0,5).map(a => (
+            <div key={a.id} style={{ display:'flex', justifyContent:'space-between', alignItems:'center', padding:'7px 0', borderBottom:'1px solid var(--border)' }}>
+              <div>
+                <div style={{ fontFamily:'var(--mono)', fontSize:12, color:'var(--green)' }}>{a.serial_number}</div>
+                <div style={{ fontSize:11, color:'var(--text3)' }}>{a.from_department} → {a.to_department}</div>
+              </div>
+              <div style={{ fontSize:11, color:'var(--text3)' }}>{a.date}</div>
+            </div>
+          ))}
+          {assignments.length === 0 && <div style={{ color:'var(--text3)', fontSize:13 }}>No assignments logged yet.</div>}
+        </div>
+      </div>
+
+      {/* Edit modal */}
+      {editingRadio && (
+        <RadioForm radio={editingRadio} radios={radios}
+          onSave={async r => { await onEditRadio(r); setEditingRadio(null); }}
+          onClose={() => setEditingRadio(null)} />
+      )}
+    </div>
+  );
+}
+
+// ─── INVENTORY ────────────────────────────────────────────────────
+function Inventory({ radios, onSave, notify }) {
+  const [search, setSearch] = useState('');
+  const [filterDept, setFilterDept] = useState('');
+  const [filterStatus, setFilterStatus] = useState('');
+  const [editing, setEditing] = useState(null);
+  const [showForm, setShowForm] = useState(false);
+
+  const filtered = useMemo(() => radios.filter(r =>
+    (!search || r.serial_number?.toLowerCase().includes(search.toLowerCase()) || r.radio_id?.toLowerCase().includes(search.toLowerCase()) || r.make?.toLowerCase().includes(search.toLowerCase()) || r.model?.toLowerCase().includes(search.toLowerCase())) &&
+    (!filterDept || r.department === filterDept) &&
+    (!filterStatus || r.status === filterStatus)
+  ), [radios, search, filterDept, filterStatus]);
+
+  const openNew = () => { setEditing(null); setShowForm(true); };
+  const openEdit = (r) => { setEditing(r); setShowForm(true); };
+
+  return (
+    <div>
+      <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:20 }}>
+        <div>
+          <div style={{ fontFamily:'var(--mono)', fontSize:12, color:'var(--text3)', marginBottom:4 }}>MASTER ASSET LIST</div>
+          <h2 style={{ fontSize:20, fontWeight:500 }}>Radio Inventory <span style={{ fontFamily:'var(--mono)', fontSize:14, color:'var(--text3)', fontWeight:400 }}>({filtered.length})</span></h2>
+        </div>
+        <button className="btn btn-primary" onClick={openNew}>+ Add Radio</button>
+      </div>
+      <div style={{ display:'flex', gap:10, marginBottom:16 }}>
+        <input placeholder="Search serial, ID, make, model…" value={search} onChange={e=>setSearch(e.target.value)} style={{ flex:1 }} />
+        <select value={filterDept} onChange={e=>setFilterDept(e.target.value)}>
+          <option value="">All Departments</option>
+          {DEPARTMENTS.map(d=><option key={d}>{d}</option>)}
+        </select>
+        <select value={filterStatus} onChange={e=>setFilterStatus(e.target.value)}>
+          <option value="">All Statuses</option>
+          {STATUSES.map(s=><option key={s}>{s}</option>)}
+        </select>
+      </div>
+      <div style={{ background:'var(--surface)', border:'1px solid var(--border)', borderRadius:6, overflow:'hidden' }}>
+        <div style={{ overflowX:'auto' }}>
+          <table>
+            <thead>
+              <tr>
+                {['Radio ID','Serial Number','Make / Model','Department','Status','Location','Condition','Spare?','Repair?','Actions'].map(h=><th key={h}>{h}</th>)}
+              </tr>
+            </thead>
+            <tbody>
+              {filtered.map(r => (
+                <tr key={r.id}>
+                  <td><span style={{ fontFamily:'var(--mono)', color:'var(--green)', fontSize:12 }}>{r.radio_id}</span></td>
+                  <td><span style={{ fontFamily:'var(--mono)', fontSize:12 }}>{r.serial_number}</span></td>
+                  <td><span style={{ color:'var(--text2)' }}>{r.make} {r.model}</span></td>
+                  <td><Badge val={r.department} map={DEPT_COLORS} /></td>
+                  <td><Badge val={r.status} map={STATUS_COLORS} /></td>
+                  <td style={{ color:'var(--text2)', fontSize:12 }}>{r.location || '—'}</td>
+                  <td style={{ color:'var(--text2)', fontSize:12 }}>{r.condition || '—'}</td>
+                  <td style={{ textAlign:'center' }}>
+                    {r.is_spare ? <span style={{ color:'var(--orange)' }}>●</span> : <span style={{ color:'#aaa' }}>○</span>}
+                  </td>
+                  <td style={{ textAlign:'center' }}>
+                    {r.repair_needed ? <span style={{ color:'var(--danger)' }}>●</span> : <span style={{ color:'#aaa' }}>○</span>}
+                  </td>
+                  <td>
+                    <button className="btn btn-secondary btn-sm" onClick={() => openEdit(r)}>Edit</button>
+                  </td>
+                </tr>
+              ))}
+              {filtered.length === 0 && (
+                <tr><td colSpan={10} style={{ textAlign:'center', color:'var(--text3)', padding:40 }}>No radios found</td></tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
+      {showForm && <RadioForm radio={editing} radios={radios} onSave={async (r) => { await onSave(r); setShowForm(false); }} onClose={() => setShowForm(false)} />}
+    </div>
+  );
+}
+
+function RadioForm({ radio, radios, onSave, onClose }) {
+  const nextId = () => {
+    const nums = radios.map(r => parseInt((r.radio_id||'').replace(/\D/g,''))||0);
+    return `RD-${String(Math.max(0,...nums)+1).padStart(3,'0')}`;
+  };
+  const [form, setForm] = useState(radio || {
+    radio_id: nextId(), serial_number:'', make:'', model:'', department:'Unassigned',
+    status:'Spare', location:'', in_service_date:'', purchase_date:'', warranty_expiration:'',
+    condition:'Good', is_spare:false, repair_needed:false, last_service_date:'', notes:''
+  });
+  const set = (k,v) => setForm(f=>({...f,[k]:v}));
+
+  return (
+    <div className="modal-overlay" onClick={e=>e.target===e.currentTarget&&onClose()}>
+      <div className="modal">
+        <div className="modal-header">
+          <span style={{ fontFamily:'var(--mono)', fontWeight:600 }}>{radio ? 'Edit Radio' : 'Add New Radio'}</span>
+          <button className="btn btn-secondary btn-sm" onClick={onClose}>✕</button>
+        </div>
+        <div className="modal-body">
+          <div className="form-grid">
+            <div className="form-group"><label>Radio ID</label><input value={form.radio_id} onChange={e=>set('radio_id',e.target.value)} /></div>
+            <div className="form-group"><label>Serial Number *</label><input value={form.serial_number} onChange={e=>set('serial_number',e.target.value)} /></div>
+            <div className="form-group"><label>Make</label><input value={form.make} onChange={e=>set('make',e.target.value)} /></div>
+            <div className="form-group"><label>Model</label><input value={form.model} onChange={e=>set('model',e.target.value)} /></div>
+            <div className="form-group"><label>Department</label><select value={form.department} onChange={e=>set('department',e.target.value)}>{DEPARTMENTS.map(d=><option key={d}>{d}</option>)}</select></div>
+            <div className="form-group"><label>Status</label><select value={form.status} onChange={e=>set('status',e.target.value)}>{STATUSES.map(s=><option key={s}>{s}</option>)}</select></div>
+            <div className="form-group"><label>Location / Area</label><input value={form.location} onChange={e=>set('location',e.target.value)} /></div>
+            <div className="form-group"><label>Condition</label><select value={form.condition} onChange={e=>set('condition',e.target.value)}>{CONDITIONS.map(c=><option key={c}>{c}</option>)}</select></div>
+            <div className="form-group"><label>Purchase Date</label><input type="date" value={form.purchase_date} onChange={e=>set('purchase_date',e.target.value)} /></div>
+            <div className="form-group"><label>In Service Date</label><input type="date" value={form.in_service_date} onChange={e=>set('in_service_date',e.target.value)} /></div>
+            <div className="form-group"><label>Warranty Expiration</label><input type="date" value={form.warranty_expiration} onChange={e=>set('warranty_expiration',e.target.value)} /></div>
+            <div className="form-group"><label>Last Service Date</label><input type="date" value={form.last_service_date} onChange={e=>set('last_service_date',e.target.value)} /></div>
+            <div className="form-group" style={{ flexDirection:'row', alignItems:'center', gap:10 }}>
+              <input type="checkbox" checked={!!form.is_spare} onChange={e=>set('is_spare',e.target.checked)} id="is_spare" />
+              <label htmlFor="is_spare" style={{ textTransform:'none', letterSpacing:0, fontSize:13, color:'var(--text)' }}>Spare Radio</label>
+            </div>
+            <div className="form-group" style={{ flexDirection:'row', alignItems:'center', gap:10 }}>
+              <input type="checkbox" checked={!!form.repair_needed} onChange={e=>set('repair_needed',e.target.checked)} id="repair_needed" />
+              <label htmlFor="repair_needed" style={{ textTransform:'none', letterSpacing:0, fontSize:13, color:'var(--text)' }}>Repair Needed</label>
+            </div>
+            <div className="form-group full"><label>Notes</label><textarea rows={2} value={form.notes} onChange={e=>set('notes',e.target.value)} /></div>
+          </div>
+        </div>
+        <div className="modal-footer">
+          <button className="btn btn-secondary" onClick={onClose}>Cancel</button>
+          <button className="btn btn-primary" onClick={() => { if(!form.serial_number){alert('Serial number required');return;} onSave(form); }}>Save Radio</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── ASSIGNMENTS ──────────────────────────────────────────────────
+function Assignments({ assignments, radios, onSave, notify }) {
+  const [showForm, setShowForm] = useState(false);
+  const [search, setSearch] = useState('');
+
+  const filtered = useMemo(() => assignments.filter(a =>
+    !search || a.serial_number?.toLowerCase().includes(search.toLowerCase()) || a.transaction_id?.toLowerCase().includes(search.toLowerCase())
+  ), [assignments, search]);
+
+  const nextTxn = () => {
+    const nums = assignments.map(a=>parseInt((a.transaction_id||'').replace(/\D/g,''))||0);
+    return `TXN-${String(Math.max(0,...nums)+1).padStart(3,'0')}`;
+  };
+
+  return (
+    <div>
+      <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:20 }}>
+        <div>
+          <div style={{ fontFamily:'var(--mono)', fontSize:12, color:'var(--text3)', marginBottom:4 }}>MOVEMENT HISTORY</div>
+          <h2 style={{ fontSize:20, fontWeight:500 }}>Assignment Log <span style={{ fontFamily:'var(--mono)', fontSize:14, color:'var(--text3)', fontWeight:400 }}>({filtered.length})</span></h2>
+        </div>
+        <button className="btn btn-primary" onClick={() => setShowForm(true)}>+ Log Assignment</button>
+      </div>
+      <div style={{ marginBottom:16 }}>
+        <input placeholder="Search serial number, transaction ID…" value={search} onChange={e=>setSearch(e.target.value)} style={{ width:320 }} />
+      </div>
+      <div style={{ background:'var(--surface)', border:'1px solid var(--border)', borderRadius:6, overflow:'hidden' }}>
+        <table>
+          <thead>
+            <tr>
+              {['Txn ID','Date','Serial Number','From','To','Prev Status','New Status','Reason','Approved By'].map(h=><th key={h}>{h}</th>)}
+            </tr>
+          </thead>
+          <tbody>
+            {filtered.map(a => (
+              <tr key={a.id}>
+                <td><span style={{ fontFamily:'var(--mono)', fontSize:12, color:'var(--green)' }}>{a.transaction_id}</span></td>
+                <td style={{ fontSize:12, color:'var(--text2)' }}>{a.date}</td>
+                <td><span style={{ fontFamily:'var(--mono)', fontSize:12 }}>{a.serial_number}</span></td>
+                <td><Badge val={a.from_department} map={DEPT_COLORS} /></td>
+                <td><Badge val={a.to_department} map={DEPT_COLORS} /></td>
+                <td><Badge val={a.prev_status} map={STATUS_COLORS} /></td>
+                <td><Badge val={a.new_status} map={STATUS_COLORS} /></td>
+                <td style={{ fontSize:12, color:'var(--text2)', maxWidth:200 }}>{a.reason}</td>
+                <td style={{ fontSize:12, color:'var(--text2)' }}>{a.approved_by}</td>
+              </tr>
+            ))}
+            {filtered.length === 0 && <tr><td colSpan={9} style={{ textAlign:'center', color:'var(--text3)', padding:40 }}>No assignments logged yet</td></tr>}
+          </tbody>
+        </table>
+      </div>
+      {showForm && <AssignmentForm radios={radios} nextTxn={nextTxn()} onSave={async r=>{ await onSave(r); setShowForm(false); }} onClose={()=>setShowForm(false)} />}
+    </div>
+  );
+}
+
+function AssignmentForm({ radios, nextTxn, onSave, onClose }) {
+  const [form, setForm] = useState({
+    transaction_id: nextTxn, date: new Date().toISOString().slice(0,10),
+    serial_number:'', from_department:'Unassigned', to_department:'Production',
+    prev_status:'Spare', new_status:'Assigned', reason:'', approved_by:'', entered_by:'', notes:''
+  });
+  const set = (k,v) => setForm(f=>({...f,[k]:v}));
+
+  const onSerialChange = (sn) => {
+    const r = radios.find(r=>r.serial_number===sn);
+    if (r) setForm(f=>({...f, serial_number:sn, from_department:r.department, prev_status:r.status}));
+    else setForm(f=>({...f, serial_number:sn}));
+  };
+
+  return (
+    <div className="modal-overlay" onClick={e=>e.target===e.currentTarget&&onClose()}>
+      <div className="modal">
+        <div className="modal-header">
+          <span style={{ fontFamily:'var(--mono)', fontWeight:600 }}>Log Assignment / Movement</span>
+          <button className="btn btn-secondary btn-sm" onClick={onClose}>✕</button>
+        </div>
+        <div className="modal-body">
+          <div className="form-grid">
+            <div className="form-group"><label>Transaction ID</label><input value={form.transaction_id} onChange={e=>set('transaction_id',e.target.value)} /></div>
+            <div className="form-group"><label>Date</label><input type="date" value={form.date} onChange={e=>set('date',e.target.value)} /></div>
+            <div className="form-group full">
+              <label>Serial Number *</label>
+              <select value={form.serial_number} onChange={e=>onSerialChange(e.target.value)}>
+                <option value="">— Select radio —</option>
+                {radios.map(r=><option key={r.serial_number} value={r.serial_number}>{r.serial_number} — {r.make} {r.model} ({r.department})</option>)}
+              </select>
+            </div>
+            <div className="form-group"><label>From Department</label><select value={form.from_department} onChange={e=>set('from_department',e.target.value)}>{DEPARTMENTS.map(d=><option key={d}>{d}</option>)}</select></div>
+            <div className="form-group"><label>To Department</label><select value={form.to_department} onChange={e=>set('to_department',e.target.value)}>{DEPARTMENTS.map(d=><option key={d}>{d}</option>)}</select></div>
+            <div className="form-group"><label>Previous Status</label><select value={form.prev_status} onChange={e=>set('prev_status',e.target.value)}>{STATUSES.map(s=><option key={s}>{s}</option>)}</select></div>
+            <div className="form-group"><label>New Status</label><select value={form.new_status} onChange={e=>set('new_status',e.target.value)}>{STATUSES.map(s=><option key={s}>{s}</option>)}</select></div>
+            <div className="form-group"><label>Approved By</label><input value={form.approved_by} onChange={e=>set('approved_by',e.target.value)} /></div>
+            <div className="form-group"><label>Entered By</label><input value={form.entered_by} onChange={e=>set('entered_by',e.target.value)} /></div>
+            <div className="form-group full"><label>Reason for Change</label><input value={form.reason} onChange={e=>set('reason',e.target.value)} /></div>
+            <div className="form-group full"><label>Notes</label><textarea rows={2} value={form.notes} onChange={e=>set('notes',e.target.value)} /></div>
+          </div>
+        </div>
+        <div className="modal-footer">
+          <button className="btn btn-secondary" onClick={onClose}>Cancel</button>
+          <button className="btn btn-primary" onClick={() => { if(!form.serial_number){alert('Serial number required');return;} onSave(form); }}>Log Assignment</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── REPAIRS ──────────────────────────────────────────────────────
+function Repairs({ repairs, radios, onSave, notify }) {
+  const [showForm, setShowForm] = useState(false);
+  const [editing, setEditing] = useState(null);
+  const [filterStatus, setFilterStatus] = useState('');
+
+  const filtered = useMemo(() => repairs.filter(r => !filterStatus || r.repair_status === filterStatus), [repairs, filterStatus]);
+
+  const nextRepair = () => {
+    const nums = repairs.map(r=>parseInt((r.repair_id||'').replace(/\D/g,''))||0);
+    return `REP-${String(Math.max(0,...nums)+1).padStart(3,'0')}`;
+  };
+
+  const REPAIR_STATUS_COLORS = {
+    'Reported':         { bg:'#fdebd6', color:'#7a3210', border:'#e8a87a' },
+    'Awaiting Shipment':{ bg:'#fce8d6', color:'#7a2e0a', border:'#e8956a' },
+    'At Vendor':        { bg:'#d6e8f5', color:'#1a3a6a', border:'#90b8e0' },
+    'In House Repair':  { bg:'#e8d6f5', color:'#4a1a7a', border:'#c0a0e0' },
+    'Repaired':         { bg:'#d6ecd4', color:'#1e4a1a', border:'#8fbc8a' },
+    'Returned to Stock':{ bg:'#d6ecd4', color:'#1e4a1a', border:'#8fbc8a' },
+    'Scrapped':         { bg:'#ebebeb', color:'#666', border:'#ccc' },
+  };
+
+  return (
+    <div>
+      <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:20 }}>
+        <div>
+          <div style={{ fontFamily:'var(--mono)', fontSize:12, color:'var(--text3)', marginBottom:4 }}>SERVICE EVENTS</div>
+          <h2 style={{ fontSize:20, fontWeight:500 }}>Repair Log <span style={{ fontFamily:'var(--mono)', fontSize:14, color:'var(--text3)', fontWeight:400 }}>({filtered.length})</span></h2>
+        </div>
+        <button className="btn btn-primary" onClick={() => { setEditing(null); setShowForm(true); }}>+ Log Repair</button>
+      </div>
+      <div style={{ marginBottom:16 }}>
+        <select value={filterStatus} onChange={e=>setFilterStatus(e.target.value)}>
+          <option value="">All Repair Statuses</option>
+          {REPAIR_STATUSES.map(s=><option key={s}>{s}</option>)}
+        </select>
+      </div>
+      <div style={{ background:'var(--surface)', border:'1px solid var(--border)', borderRadius:6, overflow:'hidden' }}>
+        <div style={{ overflowX:'auto' }}>
+          <table>
+            <thead>
+              <tr>
+                {['Repair ID','Reported','Serial #','Dept','Problem','Status','Vendor','Downtime','Spare Issued','Actions'].map(h=><th key={h}>{h}</th>)}
+              </tr>
+            </thead>
+            <tbody>
+              {filtered.map(r => (
+                <tr key={r.id}>
+                  <td><span style={{ fontFamily:'var(--mono)', fontSize:12, color:'var(--orange)' }}>{r.repair_id}</span></td>
+                  <td style={{ fontSize:12, color:'var(--text2)' }}>{r.date_reported}</td>
+                  <td><span style={{ fontFamily:'var(--mono)', fontSize:12 }}>{r.serial_number}</span></td>
+                  <td><Badge val={r.department} map={DEPT_COLORS} /></td>
+                  <td style={{ fontSize:12, color:'var(--text2)', maxWidth:180 }}>{r.problem}</td>
+                  <td><Badge val={r.repair_status} map={REPAIR_STATUS_COLORS} /></td>
+                  <td style={{ fontSize:12, color:'var(--text2)' }}>{r.sent_to_vendor ? (r.vendor_name||'Yes') : '—'}</td>
+                  <td style={{ fontFamily:'var(--mono)', fontSize:12, textAlign:'center' }}>{r.downtime_days ?? '—'}d</td>
+                  <td style={{ textAlign:'center' }}>{r.spare_issued ? <span style={{ color:'var(--orange)' }}>●</span> : <span style={{ color:'#aaa' }}>○</span>}</td>
+                  <td><button className="btn btn-secondary btn-sm" onClick={() => { setEditing(r); setShowForm(true); }}>Edit</button></td>
+                </tr>
+              ))}
+              {filtered.length === 0 && <tr><td colSpan={10} style={{ textAlign:'center', color:'var(--text3)', padding:40 }}>No repairs logged</td></tr>}
+            </tbody>
+          </table>
+        </div>
+      </div>
+      {showForm && <RepairForm repair={editing} radios={radios} nextId={nextRepair()} onSave={async r=>{ await onSave(r); setShowForm(false); }} onClose={()=>setShowForm(false)} />}
+    </div>
+  );
+}
+
+function RepairForm({ repair, radios, nextId, onSave, onClose }) {
+  const [form, setForm] = useState(repair || {
+    repair_id: nextId, date_reported: new Date().toISOString().slice(0,10),
+    serial_number:'', department:'', problem:'', sent_to_vendor:false, vendor_name:'',
+    repair_status:'Reported', date_sent:'', date_returned:'',
+    warranty_claim:false, downtime_days:'', spare_issued:false, replacement_serial:'', notes:''
+  });
+  const set = (k,v) => setForm(f=>({...f,[k]:v}));
+
+  const onSerialChange = (sn) => {
+    const r = radios.find(r=>r.serial_number===sn);
+    setForm(f=>({...f, serial_number:sn, department: r?.department||''}));
+  };
+
+  return (
+    <div className="modal-overlay" onClick={e=>e.target===e.currentTarget&&onClose()}>
+      <div className="modal">
+        <div className="modal-header">
+          <span style={{ fontFamily:'var(--mono)', fontWeight:600 }}>{repair ? 'Edit Repair' : 'Log New Repair'}</span>
+          <button className="btn btn-secondary btn-sm" onClick={onClose}>✕</button>
+        </div>
+        <div className="modal-body">
+          <div className="form-grid">
+            <div className="form-group"><label>Repair ID</label><input value={form.repair_id} onChange={e=>set('repair_id',e.target.value)} /></div>
+            <div className="form-group"><label>Date Reported</label><input type="date" value={form.date_reported} onChange={e=>set('date_reported',e.target.value)} /></div>
+            <div className="form-group full">
+              <label>Serial Number *</label>
+              <select value={form.serial_number} onChange={e=>onSerialChange(e.target.value)}>
+                <option value="">— Select radio —</option>
+                {radios.map(r=><option key={r.serial_number} value={r.serial_number}>{r.serial_number} — {r.make} {r.model}</option>)}
+              </select>
+            </div>
+            <div className="form-group"><label>Department</label><select value={form.department} onChange={e=>set('department',e.target.value)}>{DEPARTMENTS.map(d=><option key={d}>{d}</option>)}</select></div>
+            <div className="form-group"><label>Repair Status</label><select value={form.repair_status} onChange={e=>set('repair_status',e.target.value)}>{REPAIR_STATUSES.map(s=><option key={s}>{s}</option>)}</select></div>
+            <div className="form-group full"><label>Problem Reported</label><textarea rows={2} value={form.problem} onChange={e=>set('problem',e.target.value)} /></div>
+            <div className="form-group" style={{ flexDirection:'row', alignItems:'center', gap:10 }}>
+              <input type="checkbox" checked={!!form.sent_to_vendor} onChange={e=>set('sent_to_vendor',e.target.checked)} id="stv" />
+              <label htmlFor="stv" style={{ textTransform:'none', letterSpacing:0, fontSize:13, color:'var(--text)' }}>Sent to Vendor</label>
+            </div>
+            <div className="form-group"><label>Vendor Name</label><input value={form.vendor_name} onChange={e=>set('vendor_name',e.target.value)} disabled={!form.sent_to_vendor} /></div>
+            <div className="form-group"><label>Date Sent</label><input type="date" value={form.date_sent} onChange={e=>set('date_sent',e.target.value)} /></div>
+            <div className="form-group"><label>Date Returned</label><input type="date" value={form.date_returned} onChange={e=>set('date_returned',e.target.value)} /></div>
+            <div className="form-group"><label>Downtime Days</label><input type="number" value={form.downtime_days} onChange={e=>set('downtime_days',e.target.value)} /></div>
+            <div className="form-group" style={{ flexDirection:'row', alignItems:'center', gap:10 }}>
+              <input type="checkbox" checked={!!form.warranty_claim} onChange={e=>set('warranty_claim',e.target.checked)} id="wc" />
+              <label htmlFor="wc" style={{ textTransform:'none', letterSpacing:0, fontSize:13, color:'var(--text)' }}>Warranty Claim</label>
+            </div>
+            <div className="form-group" style={{ flexDirection:'row', alignItems:'center', gap:10 }}>
+              <input type="checkbox" checked={!!form.spare_issued} onChange={e=>set('spare_issued',e.target.checked)} id="si" />
+              <label htmlFor="si" style={{ textTransform:'none', letterSpacing:0, fontSize:13, color:'var(--text)' }}>Spare Issued</label>
+            </div>
+            <div className="form-group full"><label>Replacement Serial (if spare issued)</label><input value={form.replacement_serial} onChange={e=>set('replacement_serial',e.target.value)} disabled={!form.spare_issued} /></div>
+            <div className="form-group full"><label>Notes</label><textarea rows={2} value={form.notes} onChange={e=>set('notes',e.target.value)} /></div>
+          </div>
+        </div>
+        <div className="modal-footer">
+          <button className="btn btn-secondary" onClick={onClose}>Cancel</button>
+          <button className="btn btn-primary" onClick={() => { if(!form.serial_number){alert('Serial number required');return;} onSave(form); }}>Save Repair</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── SPARES ───────────────────────────────────────────────────────
+function Spares({ radios, onSave, notify }) {
+  const spares = radios.filter(r => r.is_spare || r.status === 'Spare');
+  const ready = spares.filter(r => r.condition !== 'Poor' && r.condition !== 'Damaged' && !r.repair_needed);
+
+  return (
+    <div>
+      <div style={{ marginBottom:20 }}>
+        <div style={{ fontFamily:'var(--mono)', fontSize:12, color:'var(--text3)', marginBottom:4 }}>STANDBY ASSETS</div>
+        <h2 style={{ fontSize:20, fontWeight:500 }}>Spare Radio Inventory</h2>
+      </div>
+      <div style={{ display:'grid', gridTemplateColumns:'repeat(3,1fr)', gap:12, marginBottom:20 }}>
+        {[
+          { l:'Total Spares', v:spares.length, c:'#8a6a3a' },
+          { l:'Ready to Deploy', v:ready.length, c:'var(--green)' },
+          { l:'Needs Attention', v:spares.length - ready.length, c:'var(--danger)' },
+        ].map(i=>(
+          <div key={i.l} style={{ background:'var(--surface)', border:'1px solid var(--border)', borderRadius:6, padding:'16px 20px', borderLeft:`3px solid ${i.c}` }}>
+            <div style={{ fontFamily:'var(--mono)', fontSize:11, color:'var(--text3)', marginBottom:6, textTransform:'uppercase', letterSpacing:'0.07em' }}>{i.l}</div>
+            <div style={{ fontFamily:'var(--mono)', fontSize:28, fontWeight:600, color:i.c }}>{i.v}</div>
+          </div>
+        ))}
+      </div>
+      <div style={{ background:'var(--surface)', border:'1px solid var(--border)', borderRadius:6, overflow:'hidden' }}>
+        <table>
+          <thead>
+            <tr>
+              {['Serial Number','Make / Model','Status','Condition','Ready?','Repair Needed?','Last Checked','Location','Notes'].map(h=><th key={h}>{h}</th>)}
+            </tr>
+          </thead>
+          <tbody>
+            {spares.map(r => {
+              const isReady = r.condition !== 'Poor' && r.condition !== 'Damaged' && !r.repair_needed;
+              return (
+                <tr key={r.id}>
+                  <td><span style={{ fontFamily:'var(--mono)', fontSize:12, color:'var(--green)' }}>{r.serial_number}</span></td>
+                  <td style={{ color:'var(--text2)' }}>{r.make} {r.model}</td>
+                  <td><Badge val={r.status} map={STATUS_COLORS} /></td>
+                  <td style={{ color:'var(--text2)', fontSize:12 }}>{r.condition}</td>
+                  <td style={{ textAlign:'center' }}>
+                    {isReady
+                      ? <span style={{ color:'var(--green)', fontFamily:'var(--mono)', fontSize:12 }}>✓ YES</span>
+                      : <span style={{ color:'var(--danger)', fontFamily:'var(--mono)', fontSize:12 }}>✕ NO</span>}                  </td>
+                  <td style={{ textAlign:'center' }}>{r.repair_needed ? <span style={{ color:'var(--danger)' }}>●</span> : <span style={{ color:'#aaa' }}>○</span>}</td>
+                  <td style={{ fontSize:12, color:'var(--text2)' }}>{r.last_service_date || '—'}</td>
+                  <td style={{ fontSize:12, color:'var(--text2)' }}>{r.location || '—'}</td>
+                  <td style={{ fontSize:12, color:'var(--text3)' }}>{r.notes || '—'}</td>
+                </tr>
+              );
+            })}
+            {spares.length === 0 && <tr><td colSpan={9} style={{ textAlign:'center', color:'var(--text3)', padding:40 }}>No spare radios in inventory</td></tr>}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
+// ─── SETUP MODAL ──────────────────────────────────────────────────
+function SetupModal({ onClose, onSave }) {
+  const [url, setUrl] = useState('');
+  const [key, setKey] = useState('');
+
+  const handleSave = () => {
+    if (!url || !key) { alert('Both fields required'); return; }
+    // Reload page with new config — in real deploy these would be env vars
+    alert('In production, set REACT_APP_SUPABASE_URL and REACT_APP_SUPABASE_ANON_KEY as environment variables in Vercel, then redeploy. For now, edit the SUPABASE_URL and SUPABASE_ANON_KEY constants at the top of the source file.');
+    onSave();
+  };
+
+  return (
+    <div className="modal-overlay" onClick={e=>e.target===e.currentTarget&&onClose()}>
+      <div className="modal" style={{ maxWidth:520 }}>
+        <div className="modal-header">
+          <span style={{ fontFamily:'var(--mono)', fontWeight:600 }}>Connect to Supabase</span>
+          <button className="btn btn-secondary btn-sm" onClick={onClose}>✕</button>
+        </div>
+        <div className="modal-body">
+          <div style={{ background:'#f0f7ef', border:'1px solid #b8d4b5', borderRadius:4, padding:14, marginBottom:20, fontSize:13, color:'var(--text2)', lineHeight:1.6 }}>
+            <strong style={{ color:'var(--green)', fontFamily:'var(--mono)' }}>Setup Instructions:</strong><br/><br/>
+            1. Create a free account at <strong>supabase.com</strong><br/>
+            2. Create a new project<br/>
+            3. Click <strong>SQL Editor</strong> and run the SQL schema (click "SQL Schema" button in header)<br/>
+            4. Go to <strong>Settings → API</strong> to find your URL and anon key<br/>
+            5. For Vercel deployment: add these as environment variables<br/>&nbsp;&nbsp;&nbsp;<code style={{ fontFamily:'var(--mono)', color:'var(--green)', fontSize:12 }}>VITE_SUPABASE_URL</code> and <code style={{ fontFamily:'var(--mono)', color:'var(--green)', fontSize:12 }}>VITE_SUPABASE_ANON_KEY</code>
+          </div>
+          <div className="form-grid">
+            <div className="form-group full"><label>Supabase Project URL</label><input placeholder="https://xxxx.supabase.co" value={url} onChange={e=>setUrl(e.target.value)} /></div>
+            <div className="form-group full"><label>Supabase Anon Key</label><input placeholder="eyJhbGci…" value={key} onChange={e=>setKey(e.target.value)} /></div>
+          </div>
+        </div>
+        <div className="modal-footer">
+          <button className="btn btn-secondary" onClick={onClose}>Cancel</button>
+          <button className="btn btn-primary" onClick={handleSave}>Save Configuration</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── SQL MODAL ────────────────────────────────────────────────────
+function SQLModal({ sql, onClose }) {
+  const [copied, setCopied] = useState(false);
+  const copy = () => { navigator.clipboard.writeText(sql); setCopied(true); setTimeout(()=>setCopied(false),2000); };
+
+  return (
+    <div className="modal-overlay" onClick={e=>e.target===e.currentTarget&&onClose()}>
+      <div className="modal" style={{ maxWidth:720 }}>
+        <div className="modal-header">
+          <span style={{ fontFamily:'var(--mono)', fontWeight:600 }}>Supabase SQL Schema</span>
+          <div style={{ display:'flex', gap:8 }}>
+            <button className="btn btn-primary btn-sm" onClick={copy}>{copied ? '✓ Copied' : 'Copy SQL'}</button>
+            <button className="btn btn-secondary btn-sm" onClick={onClose}>✕</button>
+          </div>
+        </div>
+        <div className="modal-body">
+          <p style={{ color:'var(--text2)', fontSize:13, marginBottom:12 }}>Run this in your Supabase project → SQL Editor → New query:</p>
+          <pre style={{ background:'#f7f3ee', border:'1px solid var(--border)', borderRadius:4, padding:16, fontFamily:'var(--mono)', fontSize:12, color:'#3a3a3a', overflowX:'auto', whiteSpace:'pre-wrap', lineHeight:1.6 }}>{sql}</pre>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── RENDER ───────────────────────────────────────────────────────
+ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+</script>
+</body>
+</html>
