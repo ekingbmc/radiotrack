@@ -106,7 +106,7 @@ const { useState, useEffect, useCallback, useMemo } = React;
 // ─── SUPABASE CONFIG ──────────────────────────────────────────────
 // Replace these with your actual Supabase project URL and anon key
 const SUPABASE_URL = 'https://yndniceqvedkzjrxtoqt.supabase.co';
-const SUPABASE_ANON_KEY = 'sb_publishable_JT3jSQp5gsxTdNfM30X-6A_Ct3MT3pB';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InluZG5pY2VxdmVka3pqcnh0b3F0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ4OTQ1NzMsImV4cCI6MjA5MDQ3MDU3M30.VTIfNjmjXBxO443xE-jGrdNA_zuSgCPOqr9xSAaCwq0';
 
 let supabase = null;
 try {
@@ -163,14 +163,18 @@ function App() {
 
   const notify = (msg, type='success') => setToast({ msg, type });
 
+  const [dbStatus, setDbStatus] = useState('checking'); // 'checking' | 'ok' | 'error'
+
   // ── Supabase loaders ──
   const loadData = useCallback(async () => {
-    if (!supabase) return;
+    if (!supabase) { setDbStatus('error'); return; }
     const [r, a, rep] = await Promise.all([
       supabase.from('radios').select('*').order('radio_id'),
       supabase.from('assignment_log').select('*').order('date', { ascending: false }),
       supabase.from('repair_log').select('*').order('date_reported', { ascending: false }),
     ]);
+    if (r.error) { setDbStatus('error'); return; }
+    setDbStatus('ok');
     if (r.data) setRadios(r.data);
     if (a.data) setAssignments(a.data);
     if (rep.data) setRepairs(rep.data);
@@ -180,15 +184,19 @@ function App() {
 
   // ── Radio CRUD ──
   const saveRadio = async (radio) => {
+    if (!supabase) { notify('Supabase not connected — check your URL and anon key.', 'error'); return false; }
     if (radio.id) {
       const { error } = await supabase.from('radios').update(radio).eq('id', radio.id);
-      if (error) { notify(error.message, 'error'); return; }
+      if (error) { notify(`Save failed: ${error.message}`, 'error'); return false; }
     } else {
-      const { error } = await supabase.from('radios').insert([radio]);
-      if (error) { notify(error.message, 'error'); return; }
+      // strip id entirely so Supabase auto-generates it
+      const { id: _drop, ...insertData } = radio;
+      const { error } = await supabase.from('radios').insert([insertData]);
+      if (error) { notify(`Save failed: ${error.message}`, 'error'); return false; }
     }
-    loadData();
+    await loadData();
     notify('Radio saved');
+    return true;
   };
 
   const saveAssignment = async (rec) => {
@@ -252,6 +260,13 @@ function App() {
         </nav>
       </header>
 
+      {/* DB status banner */}
+      {dbStatus === 'error' && (
+        <div style={{ background:'#fdf2f2', borderBottom:'2px solid #c0392b', padding:'8px 24px', fontSize:13, color:'#7a1a1a', display:'flex', alignItems:'center', gap:8, flexShrink:0 }}>
+          <span style={{ fontWeight:600 }}>⚠ Database connection failed.</span>
+          Open <code style={{ fontFamily:'var(--mono)', background:'#fce4e4', padding:'1px 5px', borderRadius:3 }}>index.html</code> and update <code style={{ fontFamily:'var(--mono)', background:'#fce4e4', padding:'1px 5px', borderRadius:3 }}>SUPABASE_URL</code> and <code style={{ fontFamily:'var(--mono)', background:'#fce4e4', padding:'1px 5px', borderRadius:3 }}>SUPABASE_ANON_KEY</code> at the top of the file with your project credentials from Supabase → Settings → API.
+        </div>
+      )}
       {/* Body */}
       <main style={{ flex:1, overflow:'auto', padding:24 }}>
         {tab === 'dashboard' && <Dashboard radios={radios} assignments={assignments} repairs={repairs} onEditRadio={saveRadio} onDeleteRadio={deleteRadio} />}
@@ -473,7 +488,7 @@ function Dashboard({ radios, assignments, repairs, onEditRadio, onDeleteRadio })
       {/* Edit modal */}
       {editingRadio && (
         <RadioForm radio={editingRadio} radios={radios}
-          onSave={async r => { await onEditRadio(r); setEditingRadio(null); }}
+          onSave={async r => { const ok = await onEditRadio(r); if (ok) setEditingRadio(null); }}
           onClose={() => setEditingRadio(null)} />
       )}
 
@@ -591,7 +606,7 @@ function Inventory({ radios, onSave, onDelete, notify }) {
           </table>
         </div>
       </div>
-      {showForm && <RadioForm radio={editing} radios={radios} onSave={async (r) => { await onSave(r); setShowForm(false); }} onClose={() => setShowForm(false)} />}
+      {showForm && <RadioForm radio={editing} radios={radios} onSave={async (r) => { const ok = await onSave(r); if (ok) setShowForm(false); }} onClose={() => setShowForm(false)} />}
 
       {/* Delete confirmation modal */}
       {confirmDelete && (
