@@ -311,7 +311,7 @@ function Dashboard({ radios, assignments, repairs, onEditRadio, onDeleteRadio })
           <div style={{ overflowX:'auto' }}>
             <table>
               <thead>
-                <tr>{['Radio ID','Serial Number','Make / Model','Department','Status','Location','Condition','Actions'].map(h=><th key={h}>{h}</th>)}</tr>
+                <tr>{['Radio ID','Serial Number','Make / Model','Department','Status','Condition','Actions'].map(h=><th key={h}>{h}</th>)}</tr>
               </thead>
               <tbody>
                 {list.map(r => (
@@ -321,7 +321,6 @@ function Dashboard({ radios, assignments, repairs, onEditRadio, onDeleteRadio })
                     <td style={{ color:'var(--text2)' }}>{r.make} {r.model}</td>
                     <td><Badge val={r.department} map={DEPT_COLORS} /></td>
                     <td><Badge val={r.status} map={STATUS_COLORS} /></td>
-                    <td style={{ color:'var(--text2)', fontSize:12 }}>{r.location||'—'}</td>
                     <td style={{ color:'var(--text2)', fontSize:12 }}>{r.condition||'—'}</td>
                     <td>
                       <div style={{ display:'flex', gap:6 }}>
@@ -556,7 +555,7 @@ function Inventory({ radios, onSave, onDelete, notify }) {
           <table>
             <thead>
               <tr>
-                {['Radio ID','Serial Number','Make / Model','Department','Status','Location','Condition','Spare?','Repair?','Actions'].map(h=><th key={h}>{h}</th>)}
+                {['Radio ID','Serial Number','Make / Model','Department','Status','Condition','Spare?','Repair?','Actions'].map(h=><th key={h}>{h}</th>)}
               </tr>
             </thead>
             <tbody>
@@ -567,7 +566,6 @@ function Inventory({ radios, onSave, onDelete, notify }) {
                   <td><span style={{ color:'var(--text2)' }}>{r.make} {r.model}</span></td>
                   <td><Badge val={r.department} map={DEPT_COLORS} /></td>
                   <td><Badge val={r.status} map={STATUS_COLORS} /></td>
-                  <td style={{ color:'var(--text2)', fontSize:12 }}>{r.location || '—'}</td>
                   <td style={{ color:'var(--text2)', fontSize:12 }}>{r.condition || '—'}</td>
                   <td style={{ textAlign:'center' }}>
                     {r.is_spare ? <span style={{ color:'var(--orange)' }}>●</span> : <span style={{ color:'#aaa' }}>○</span>}
@@ -587,7 +585,7 @@ function Inventory({ radios, onSave, onDelete, notify }) {
                 </tr>
               ))}
               {filtered.length === 0 && (
-                <tr><td colSpan={10} style={{ textAlign:'center', color:'var(--text3)', padding:40 }}>No radios found</td></tr>
+                <tr><td colSpan={9} style={{ textAlign:'center', color:'var(--text3)', padding:40 }}>No radios found</td></tr>
               )}
             </tbody>
           </table>
@@ -633,10 +631,15 @@ function RadioForm({ radio, radios, onSave, onClose }) {
   };
   const [form, setForm] = useState(radio || {
     radio_id: nextId(), serial_number:'', make:'', model:'', department:'Unassigned',
-    status:'Spare', location:'', in_service_date:'', purchase_date:'', warranty_expiration:'',
+    status:'Spare', purchase_date:'', warranty_expiration:'',
     condition:'Good', is_spare:false, repair_needed:false, last_service_date:'', notes:''
   });
   const set = (k,v) => setForm(f=>({...f,[k]:v}));
+
+  const handleSave = () => {
+    if (!form.serial_number) { alert('Serial number required'); return; }
+    onSave(form);
+  };
 
   return (
     <div className="modal-overlay" onClick={e=>e.stopPropagation()}>
@@ -653,12 +656,10 @@ function RadioForm({ radio, radios, onSave, onClose }) {
             <div className="form-group"><label>Model</label><input value={form.model} onChange={e=>set('model',e.target.value)} /></div>
             <div className="form-group"><label>Department</label><select value={form.department} onChange={e=>set('department',e.target.value)}>{DEPARTMENTS.map(d=><option key={d}>{d}</option>)}</select></div>
             <div className="form-group"><label>Status</label><select value={form.status} onChange={e=>set('status',e.target.value)}>{STATUSES.map(s=><option key={s}>{s}</option>)}</select></div>
-            <div className="form-group"><label>Location / Area</label><input value={form.location} onChange={e=>set('location',e.target.value)} /></div>
             <div className="form-group"><label>Condition</label><select value={form.condition} onChange={e=>set('condition',e.target.value)}>{CONDITIONS.map(c=><option key={c}>{c}</option>)}</select></div>
-            <div className="form-group"><label>Purchase Date</label><input type="date" value={form.purchase_date} onChange={e=>set('purchase_date',e.target.value)} /></div>
-            <div className="form-group"><label>In Service Date</label><input type="date" value={form.in_service_date} onChange={e=>set('in_service_date',e.target.value)} /></div>
-            <div className="form-group"><label>Warranty Expiration</label><input type="date" value={form.warranty_expiration} onChange={e=>set('warranty_expiration',e.target.value)} /></div>
-            <div className="form-group"><label>Last Service Date</label><input type="date" value={form.last_service_date} onChange={e=>set('last_service_date',e.target.value)} /></div>
+            <div className="form-group"><label>Purchase Date</label><input type="date" value={form.purchase_date||''} onChange={e=>set('purchase_date',e.target.value)} /></div>
+            <div className="form-group"><label>Warranty Expiration</label><input type="date" value={form.warranty_expiration||''} onChange={e=>set('warranty_expiration',e.target.value)} /></div>
+            <div className="form-group"><label>Last Service Date</label><input type="date" value={form.last_service_date||''} onChange={e=>set('last_service_date',e.target.value)} /></div>
             <div className="form-group" style={{ flexDirection:'row', alignItems:'center', gap:10 }}>
               <input type="checkbox" checked={!!form.is_spare} onChange={e=>set('is_spare',e.target.checked)} id="is_spare" />
               <label htmlFor="is_spare" style={{ textTransform:'none', letterSpacing:0, fontSize:13, color:'var(--text)' }}>Spare Radio</label>
@@ -667,12 +668,12 @@ function RadioForm({ radio, radios, onSave, onClose }) {
               <input type="checkbox" checked={!!form.repair_needed} onChange={e=>set('repair_needed',e.target.checked)} id="repair_needed" />
               <label htmlFor="repair_needed" style={{ textTransform:'none', letterSpacing:0, fontSize:13, color:'var(--text)' }}>Repair Needed</label>
             </div>
-            <div className="form-group full"><label>Notes</label><textarea rows={2} value={form.notes} onChange={e=>set('notes',e.target.value)} /></div>
+            <div className="form-group full"><label>Notes</label><textarea rows={2} value={form.notes||''} onChange={e=>set('notes',e.target.value)} /></div>
           </div>
         </div>
         <div className="modal-footer">
           <button className="btn btn-secondary" onClick={onClose}>Cancel</button>
-          <button className="btn btn-primary" onClick={() => { if(!form.serial_number){alert('Serial number required');return;} onSave(form); }}>Save Radio</button>
+          <button className="btn btn-primary" onClick={handleSave}>Save Radio</button>
         </div>
       </div>
     </div>
@@ -948,7 +949,7 @@ function Spares({ radios, onSave, notify }) {
         <table>
           <thead>
             <tr>
-              {['Serial Number','Make / Model','Status','Condition','Ready?','Repair Needed?','Last Checked','Location','Notes'].map(h=><th key={h}>{h}</th>)}
+              {['Serial Number','Make / Model','Status','Condition','Ready?','Repair Needed?','Last Checked','Notes'].map(h=><th key={h}>{h}</th>)}
             </tr>
           </thead>
           <tbody>
@@ -966,12 +967,11 @@ function Spares({ radios, onSave, notify }) {
                       : <span style={{ color:'var(--danger)', fontFamily:'var(--mono)', fontSize:12 }}>✕ NO</span>}                  </td>
                   <td style={{ textAlign:'center' }}>{r.repair_needed ? <span style={{ color:'var(--danger)' }}>●</span> : <span style={{ color:'#aaa' }}>○</span>}</td>
                   <td style={{ fontSize:12, color:'var(--text2)' }}>{r.last_service_date || '—'}</td>
-                  <td style={{ fontSize:12, color:'var(--text2)' }}>{r.location || '—'}</td>
                   <td style={{ fontSize:12, color:'var(--text3)' }}>{r.notes || '—'}</td>
                 </tr>
               );
             })}
-            {spares.length === 0 && <tr><td colSpan={9} style={{ textAlign:'center', color:'var(--text3)', padding:40 }}>No spare radios in inventory</td></tr>}
+            {spares.length === 0 && <tr><td colSpan={8} style={{ textAlign:'center', color:'var(--text3)', padding:40 }}>No spare radios in inventory</td></tr>}
           </tbody>
         </table>
       </div>
