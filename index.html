@@ -6,8 +6,8 @@
 <title>Bolke Miller RadioTrack — Two-Way Radio Management System</title>
 <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
 <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
-<script src="https://unpkg.com/@supabase/supabase-js@2.47.0/dist/umd/supabase.js"></script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
 <style>
@@ -104,17 +104,22 @@
 const { useState, useEffect, useCallback, useMemo } = React;
 
 // ─── SUPABASE CONFIG ──────────────────────────────────────────────
-// Replace these with your actual Supabase project URL and anon key
 const SUPABASE_URL = 'https://yndniceqvedkzjrxtoqt.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable_JT3jSQp5gsxTdNfM30X-6A_Ct3MT3pB';
 
-let supabase = null;
-let supabaseInitError = '';
-try {
-  const { createClient } = window.supabase;
-  supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, { auth: { persistSession: false } });
-} catch(e) {
-  supabaseInitError = e.message || 'Client init failed';
+// Lazy init — called on first use so window.supabase is guaranteed loaded
+let _supabase = null;
+let _supabaseError = '';
+function getSupabase() {
+  if (_supabase) return _supabase;
+  try {
+    const lib = window.supabase || window.supabaseJs;
+    if (!lib || !lib.createClient) throw new Error('Supabase library not available on window');
+    _supabase = lib.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, { auth: { persistSession: false } });
+  } catch(e) {
+    _supabaseError = e.message;
+  }
+  return _supabase;
 }
 
 // ─── CONSTANTS ────────────────────────────────────────────────────
@@ -172,16 +177,17 @@ function App() {
 
   // ── Supabase loaders ──
   const loadData = useCallback(async () => {
-    if (!supabase) {
+    const sb = getSupabase();
+    if (!sb) {
       setDbStatus('error');
-      setDbError(supabaseInitError || 'Supabase client failed to initialize. Check your URL and key.');
+      setDbError(_supabaseError || 'Supabase library not loaded. Check your internet connection and reload the page.');
       return;
     }
     try {
       const [r, a, rep] = await Promise.all([
-        supabase.from('radios').select('*').order('radio_id'),
-        supabase.from('assignment_log').select('*').order('date', { ascending: false }),
-        supabase.from('repair_log').select('*').order('date_reported', { ascending: false }),
+        sb.from('radios').select('*').order('radio_id'),
+        sb.from('assignment_log').select('*').order('date', { ascending: false }),
+        sb.from('repair_log').select('*').order('date_reported', { ascending: false }),
       ]);
       if (r.error) { setDbStatus('error'); setDbError(r.error.message); return; }
       setDbStatus('ok');
@@ -199,14 +205,14 @@ function App() {
 
   // ── Radio CRUD ──
   const saveRadio = async (radio) => {
-    if (!supabase) { notify('Supabase not connected — check your URL and anon key.', 'error'); return false; }
+    const sb = getSupabase();
+    if (!sb) { notify('Database not connected.', 'error'); return false; }
     if (radio.id) {
-      const { error } = await supabase.from('radios').update(radio).eq('id', radio.id);
+      const { error } = await sb.from('radios').update(radio).eq('id', radio.id);
       if (error) { notify(`Save failed: ${error.message}`, 'error'); return false; }
     } else {
-      // strip id entirely so Supabase auto-generates it
       const { id: _drop, ...insertData } = radio;
-      const { error } = await supabase.from('radios').insert([insertData]);
+      const { error } = await sb.from('radios').insert([insertData]);
       if (error) { notify(`Save failed: ${error.message}`, 'error'); return false; }
     }
     await loadData();
@@ -215,9 +221,9 @@ function App() {
   };
 
   const saveAssignment = async (rec) => {
-    const { error } = await supabase.from('assignment_log').insert([rec]);
+    const { error } = await getSupabase().from('assignment_log').insert([rec]);
     if (error) { notify(error.message, 'error'); return; }
-    await supabase.from('radios').update({ department: rec.to_department, status: rec.new_status })
+    await getSupabase().from('radios').update({ department: rec.to_department, status: rec.new_status })
       .eq('serial_number', rec.serial_number);
     loadData();
     notify('Assignment logged');
@@ -225,12 +231,12 @@ function App() {
 
   const saveRepair = async (rec) => {
     if (rec.id) {
-      const { error } = await supabase.from('repair_log').update(rec).eq('id', rec.id);
+      const { error } = await getSupabase().from('repair_log').update(rec).eq('id', rec.id);
       if (error) { notify(error.message, 'error'); return; }
     } else {
-      const { error } = await supabase.from('repair_log').insert([rec]);
+      const { error } = await getSupabase().from('repair_log').insert([rec]);
       if (error) { notify(error.message, 'error'); return; }
-      await supabase.from('radios').update({ repair_needed: true, status: 'Out for Repair' })
+      await getSupabase().from('radios').update({ repair_needed: true, status: 'Out for Repair' })
         .eq('serial_number', rec.serial_number);
     }
     loadData();
@@ -238,7 +244,7 @@ function App() {
   };
 
   const deleteRadio = async (id) => {
-    const { error } = await supabase.from('radios').delete().eq('id', id);
+    const { error } = await getSupabase().from('radios').delete().eq('id', id);
     if (error) { notify(error.message, 'error'); return; }
     loadData();
     notify('Radio deleted');
