@@ -7,7 +7,7 @@
 <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
 <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
 <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.49.4/dist/umd/supabase.js"></script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
 <style>
@@ -109,9 +109,15 @@ const SUPABASE_URL = 'https://yndniceqvedkzjrxtoqt.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable_JT3jSQp5gsxTdNfM30X-6A_Ct3MT3pB';
 
 let supabase = null;
+let supabaseInitError = '';
 try {
-  supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-} catch(e) {}
+  const { createClient } = window.supabase;
+  supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+    auth: { persistSession: false }
+  });
+} catch(e) {
+  supabaseInitError = e.message || 'Client init failed';
+}
 
 // ─── CONSTANTS ────────────────────────────────────────────────────
 const STATUSES = ['In Service','Assigned','Spare','Out for Repair','Under Repair','Retired','Lost','Missing'];
@@ -164,20 +170,31 @@ function App() {
   const notify = (msg, type='success') => setToast({ msg, type });
 
   const [dbStatus, setDbStatus] = useState('checking'); // 'checking' | 'ok' | 'error'
+  const [dbError, setDbError] = useState('');
 
   // ── Supabase loaders ──
   const loadData = useCallback(async () => {
-    if (!supabase) { setDbStatus('error'); return; }
-    const [r, a, rep] = await Promise.all([
-      supabase.from('radios').select('*').order('radio_id'),
-      supabase.from('assignment_log').select('*').order('date', { ascending: false }),
-      supabase.from('repair_log').select('*').order('date_reported', { ascending: false }),
-    ]);
-    if (r.error) { setDbStatus('error'); return; }
-    setDbStatus('ok');
-    if (r.data) setRadios(r.data);
-    if (a.data) setAssignments(a.data);
-    if (rep.data) setRepairs(rep.data);
+    if (!supabase) {
+      setDbStatus('error');
+      setDbError(supabaseInitError || 'Supabase client failed to initialize. Check your URL and key.');
+      return;
+    }
+    try {
+      const [r, a, rep] = await Promise.all([
+        supabase.from('radios').select('*').order('radio_id'),
+        supabase.from('assignment_log').select('*').order('date', { ascending: false }),
+        supabase.from('repair_log').select('*').order('date_reported', { ascending: false }),
+      ]);
+      if (r.error) { setDbStatus('error'); setDbError(r.error.message); return; }
+      setDbStatus('ok');
+      setDbError('');
+      if (r.data) setRadios(r.data);
+      if (a.data) setAssignments(a.data);
+      if (rep.data) setRepairs(rep.data);
+    } catch(e) {
+      setDbStatus('error');
+      setDbError(e.message || 'Unknown connection error');
+    }
   }, []);
 
   useEffect(() => { loadData(); }, [loadData]);
@@ -262,9 +279,16 @@ function App() {
 
       {/* DB status banner */}
       {dbStatus === 'error' && (
-        <div style={{ background:'#fdf2f2', borderBottom:'2px solid #c0392b', padding:'8px 24px', fontSize:13, color:'#7a1a1a', display:'flex', alignItems:'center', gap:8, flexShrink:0 }}>
-          <span style={{ fontWeight:600 }}>⚠ Database connection failed.</span>
-          Open <code style={{ fontFamily:'var(--mono)', background:'#fce4e4', padding:'1px 5px', borderRadius:3 }}>index.html</code> and update <code style={{ fontFamily:'var(--mono)', background:'#fce4e4', padding:'1px 5px', borderRadius:3 }}>SUPABASE_URL</code> and <code style={{ fontFamily:'var(--mono)', background:'#fce4e4', padding:'1px 5px', borderRadius:3 }}>SUPABASE_ANON_KEY</code> at the top of the file with your project credentials from Supabase → Settings → API.
+        <div style={{ background:'#fdf2f2', borderBottom:'2px solid #c0392b', padding:'10px 24px', fontSize:13, color:'#7a1a1a', flexShrink:0 }}>
+          <div style={{ display:'flex', alignItems:'center', gap:8, marginBottom: dbError ? 4 : 0 }}>
+            <span style={{ fontWeight:600 }}>⚠ Database connection failed.</span>
+            <span>Check your <code style={{ fontFamily:'var(--mono)', background:'#fce4e4', padding:'1px 5px', borderRadius:3 }}>SUPABASE_URL</code> and <code style={{ fontFamily:'var(--mono)', background:'#fce4e4', padding:'1px 5px', borderRadius:3 }}>SUPABASE_ANON_KEY</code> at the top of index.html</span>
+          </div>
+          {dbError && (
+            <div style={{ fontFamily:'var(--mono)', fontSize:12, color:'#c0392b', background:'#fce4e4', padding:'6px 10px', borderRadius:3, marginTop:4 }}>
+              Error: {dbError}
+            </div>
+          )}
         </div>
       )}
       {/* Body */}
