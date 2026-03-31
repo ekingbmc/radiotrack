@@ -6,8 +6,8 @@
 <title>Bolke Miller RadioTrack — Two-Way Radio Management System</title>
 <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
 <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
 <style>
@@ -107,24 +107,21 @@ const { useState, useEffect, useCallback, useMemo } = React;
 const SUPABASE_URL = 'https://yndniceqvedkzjrxtoqt.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable_JT3jSQp5gsxTdNfM30X-6A_Ct3MT3pB';
 
-// Lazy init — called on first use so window.supabase is guaranteed loaded
 let _supabase = null;
 let _supabaseError = '';
 function getSupabase() {
   if (_supabase) return _supabase;
   try {
     const lib = window.supabase || window.supabaseJs;
-    if (!lib || !lib.createClient) throw new Error('Supabase library not available on window');
+    if (!lib || !lib.createClient) throw new Error('Supabase library not available — check CDN');
     _supabase = lib.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, { auth: { persistSession: false } });
-  } catch(e) {
-    _supabaseError = e.message;
-  }
+  } catch(e) { _supabaseError = e.message; }
   return _supabase;
 }
 
 // ─── CONSTANTS ────────────────────────────────────────────────────
 const STATUSES = ['In Service','Assigned','Spare','Out for Repair','Under Repair','Retired','Lost','Missing'];
-const DEPARTMENTS = ['Production','Maintenance','Logistics','Unassigned'];
+const DEPARTMENTS = ['Production','Maintenance','Logistics','Quality','Unassigned'];
 const REPAIR_STATUSES = ['Reported','Awaiting Shipment','At Vendor','In House Repair','Repaired','Returned to Stock','Scrapped'];
 const CONDITIONS = ['Excellent','Good','Fair','Poor','Damaged'];
 
@@ -142,6 +139,7 @@ const DEPT_COLORS = {
   'Production':  { bg:'#e8d6f5', color:'#4a1a7a', border:'#c0a0e0' },
   'Maintenance': { bg:'#d6e8f5', color:'#1a3a6a', border:'#90b8e0' },
   'Logistics':   { bg:'#d6ecd4', color:'#1e4a1a', border:'#8fbc8a' },
+  'Quality':     { bg:'#fff3d6', color:'#7a5a00', border:'#e8c84a' },
   'Unassigned':  { bg:'#ebebeb', color:'#666', border:'#ccc' },
 };
 
@@ -168,11 +166,13 @@ function App() {
   const [radios, setRadios] = useState([]);
   const [assignments, setAssignments] = useState([]);
   const [repairs, setRepairs] = useState([]);
+  const [locations, setLocations] = useState([]);
+  const [channels, setChannels] = useState([]);
   const [toast, setToast] = useState(null);
 
   const notify = (msg, type='success') => setToast({ msg, type });
 
-  const [dbStatus, setDbStatus] = useState('checking'); // 'checking' | 'ok' | 'error'
+  const [dbStatus, setDbStatus] = useState('checking');
   const [dbError, setDbError] = useState('');
 
   // ── Supabase loaders ──
@@ -180,21 +180,24 @@ function App() {
     const sb = getSupabase();
     if (!sb) {
       setDbStatus('error');
-      setDbError(_supabaseError || 'Supabase library not loaded. Check your internet connection and reload the page.');
+      setDbError(_supabaseError || 'Supabase library not loaded. Check your internet connection and reload.');
       return;
     }
     try {
-      const [r, a, rep] = await Promise.all([
+      const [r, a, rep, loc, ch] = await Promise.all([
         sb.from('radios').select('*').order('radio_id'),
         sb.from('assignment_log').select('*').order('date', { ascending: false }),
         sb.from('repair_log').select('*').order('date_reported', { ascending: false }),
+        sb.from('locations').select('*').order('name'),
+        sb.from('channels').select('*').order('location').order('channel_number'),
       ]);
       if (r.error) { setDbStatus('error'); setDbError(r.error.message); return; }
-      setDbStatus('ok');
-      setDbError('');
+      setDbStatus('ok'); setDbError('');
       if (r.data) setRadios(r.data);
       if (a.data) setAssignments(a.data);
       if (rep.data) setRepairs(rep.data);
+      if (loc.data) setLocations(loc.data);
+      if (ch.data) setChannels(ch.data);
     } catch(e) {
       setDbStatus('error');
       setDbError(e.message || 'Unknown connection error');
@@ -215,47 +218,82 @@ function App() {
       const { error } = await sb.from('radios').insert([insertData]);
       if (error) { notify(`Save failed: ${error.message}`, 'error'); return false; }
     }
-    await loadData();
-    notify('Radio saved');
-    return true;
+    await loadData(); notify('Radio saved'); return true;
   };
 
   const saveAssignment = async (rec) => {
-    const { error } = await getSupabase().from('assignment_log').insert([rec]);
+    const sb = getSupabase();
+    const { error } = await sb.from('assignment_log').insert([rec]);
     if (error) { notify(error.message, 'error'); return; }
-    await getSupabase().from('radios').update({ department: rec.to_department, status: rec.new_status })
-      .eq('serial_number', rec.serial_number);
-    loadData();
-    notify('Assignment logged');
+    await sb.from('radios').update({ department: rec.to_department, status: rec.new_status }).eq('serial_number', rec.serial_number);
+    loadData(); notify('Assignment logged');
   };
 
   const saveRepair = async (rec) => {
+    const sb = getSupabase();
     if (rec.id) {
-      const { error } = await getSupabase().from('repair_log').update(rec).eq('id', rec.id);
+      const { error } = await sb.from('repair_log').update(rec).eq('id', rec.id);
       if (error) { notify(error.message, 'error'); return; }
     } else {
-      const { error } = await getSupabase().from('repair_log').insert([rec]);
+      const { error } = await sb.from('repair_log').insert([rec]);
       if (error) { notify(error.message, 'error'); return; }
-      await getSupabase().from('radios').update({ repair_needed: true, status: 'Out for Repair' })
-        .eq('serial_number', rec.serial_number);
+      await sb.from('radios').update({ repair_needed: true, status: 'Out for Repair' }).eq('serial_number', rec.serial_number);
     }
-    loadData();
-    notify('Repair log saved');
+    loadData(); notify('Repair log saved');
   };
 
   const deleteRadio = async (id) => {
-    const { error } = await getSupabase().from('radios').delete().eq('id', id);
+    const sb = getSupabase();
+    const { error } = await sb.from('radios').delete().eq('id', id);
     if (error) { notify(error.message, 'error'); return; }
-    loadData();
-    notify('Radio deleted');
+    loadData(); notify('Radio deleted');
+  };
+
+  // ── Location CRUD ──
+  const saveLocation = async (name) => {
+    const sb = getSupabase();
+    const { error } = await sb.from('locations').insert([{ name: name.trim() }]);
+    if (error) { notify(error.message, 'error'); return false; }
+    await loadData(); notify('Location added'); return true;
+  };
+
+  const deleteLocation = async (id) => {
+    const sb = getSupabase();
+    const { error } = await sb.from('locations').delete().eq('id', id);
+    if (error) { notify(error.message, 'error'); return; }
+    await loadData(); notify('Location removed');
+  };
+
+  // ── Channel CRUD ──
+  const saveChannel = async (ch) => {
+    const sb = getSupabase();
+    if (ch.id) {
+      const { id: _d, ...data } = ch;
+      const { error } = await sb.from('channels').update(data).eq('id', ch.id);
+      if (error) { notify(error.message, 'error'); return false; }
+    } else {
+      const { id: _d, ...data } = ch;
+      const { error } = await sb.from('channels').insert([data]);
+      if (error) { notify(error.message, 'error'); return false; }
+    }
+    await loadData(); notify('Channel saved'); return true;
+  };
+
+  const deleteChannel = async (id) => {
+    const sb = getSupabase();
+    const { error } = await sb.from('channels').delete().eq('id', id);
+    if (error) { notify(error.message, 'error'); return; }
+    await loadData(); notify('Channel deleted');
   };
 
   const tabs = [
-    { id:'dashboard', label:'Dashboard', icon:'◈' },
-    { id:'inventory', label:'Radio Inventory', icon:'▦' },
-    { id:'assignments', label:'Assignment Log', icon:'⇄' },
-    { id:'repairs', label:'Repair Log', icon:'⚙' },
-    { id:'spares', label:'Spare Inventory', icon:'◻' },
+    { id:'dashboard',  label:'Dashboard',       icon:'◈' },
+    { id:'inventory',  label:'Radio Inventory',  icon:'▦' },
+    { id:'assignments',label:'Assignment Log',   icon:'⇄' },
+    { id:'repairs',    label:'Repair Log',       icon:'⚙' },
+    { id:'spares',     label:'Spare Inventory',  icon:'◻' },
+    { id:'channels',   label:'Channel Reference',icon:'📡' },
+    { id:'settings',   label:'Settings',         icon:'⚙' },
   ];
 
   return (
@@ -297,11 +335,13 @@ function App() {
       )}
       {/* Body */}
       <main style={{ flex:1, overflow:'auto', padding:24 }}>
-        {tab === 'dashboard' && <Dashboard radios={radios} assignments={assignments} repairs={repairs} onEditRadio={saveRadio} onDeleteRadio={deleteRadio} />}
-        {tab === 'inventory' && <Inventory radios={radios} onSave={saveRadio} onDelete={deleteRadio} notify={notify} />}
+        {tab === 'dashboard'   && <Dashboard radios={radios} assignments={assignments} repairs={repairs} locations={locations} onEditRadio={saveRadio} onDeleteRadio={deleteRadio} />}
+        {tab === 'inventory'   && <Inventory radios={radios} locations={locations} onSave={saveRadio} onDelete={deleteRadio} notify={notify} />}
         {tab === 'assignments' && <Assignments assignments={assignments} radios={radios} onSave={saveAssignment} notify={notify} />}
-        {tab === 'repairs' && <Repairs repairs={repairs} radios={radios} onSave={saveRepair} notify={notify} />}
-        {tab === 'spares' && <Spares radios={radios} onSave={saveRadio} notify={notify} />}
+        {tab === 'repairs'     && <Repairs repairs={repairs} radios={radios} onSave={saveRepair} notify={notify} />}
+        {tab === 'spares'      && <Spares radios={radios} onSave={saveRadio} notify={notify} />}
+        {tab === 'channels'    && <Channels channels={channels} locations={locations} onSave={saveChannel} onDelete={deleteChannel} notify={notify} />}
+        {tab === 'settings'    && <Settings locations={locations} onSaveLocation={saveLocation} onDeleteLocation={deleteLocation} notify={notify} />}
       </main>
 
       {/* Modals */}
@@ -311,7 +351,7 @@ function App() {
 }
 
 // ─── DASHBOARD ────────────────────────────────────────────────────
-function Dashboard({ radios, assignments, repairs, onEditRadio, onDeleteRadio }) {
+function Dashboard({ radios, assignments, repairs, locations, onEditRadio, onDeleteRadio }) {
   // activeFilter: { label, list, color } or null
   const [activeFilter, setActiveFilter] = useState(null);
   const [editingRadio, setEditingRadio] = useState(null);
@@ -515,7 +555,7 @@ function Dashboard({ radios, assignments, repairs, onEditRadio, onDeleteRadio })
 
       {/* Edit modal */}
       {editingRadio && (
-        <RadioForm radio={editingRadio} radios={radios}
+        <RadioForm radio={editingRadio} radios={radios} locations={locations}
           onSave={async r => { const ok = await onEditRadio(r); if (ok) setEditingRadio(null); }}
           onClose={() => setEditingRadio(null)} />
       )}
@@ -552,7 +592,7 @@ function Dashboard({ radios, assignments, repairs, onEditRadio, onDeleteRadio })
 }
 
 // ─── INVENTORY ────────────────────────────────────────────────────
-function Inventory({ radios, onSave, onDelete, notify }) {
+function Inventory({ radios, locations, onSave, onDelete, notify }) {
   const [search, setSearch] = useState('');
   const [filterDept, setFilterDept] = useState('');
   const [filterStatus, setFilterStatus] = useState('');
@@ -634,7 +674,7 @@ function Inventory({ radios, onSave, onDelete, notify }) {
           </table>
         </div>
       </div>
-      {showForm && <RadioForm radio={editing} radios={radios} onSave={async (r) => { const ok = await onSave(r); if (ok) setShowForm(false); }} onClose={() => setShowForm(false)} />}
+      {showForm && <RadioForm radio={editing} radios={radios} locations={locations} onSave={async (r) => { const ok = await onSave(r); if (ok) setShowForm(false); }} onClose={() => setShowForm(false)} />}
 
       {/* Delete confirmation modal */}
       {confirmDelete && (
@@ -667,14 +707,14 @@ function Inventory({ radios, onSave, onDelete, notify }) {
   );
 }
 
-function RadioForm({ radio, radios, onSave, onClose }) {
+function RadioForm({ radio, radios, locations, onSave, onClose }) {
   const nextId = () => {
     const nums = radios.map(r => parseInt((r.radio_id||'').replace(/\D/g,''))||0);
     return `RD-${String(Math.max(0,...nums)+1).padStart(3,'0')}`;
   };
   const [form, setForm] = useState(radio || {
     radio_id: nextId(), serial_number:'', make:'', model:'', department:'Unassigned',
-    status:'Spare', purchase_date:'', warranty_expiration:'',
+    status:'Spare', location_id:'', purchase_date:'', warranty_expiration:'',
     condition:'Good', is_spare:false, repair_needed:false, last_service_date:'', notes:''
   });
   const set = (k,v) => setForm(f=>({...f,[k]:v}));
@@ -699,6 +739,12 @@ function RadioForm({ radio, radios, onSave, onClose }) {
             <div className="form-group"><label>Model</label><input value={form.model} onChange={e=>set('model',e.target.value)} /></div>
             <div className="form-group"><label>Department</label><select value={form.department} onChange={e=>set('department',e.target.value)}>{DEPARTMENTS.map(d=><option key={d}>{d}</option>)}</select></div>
             <div className="form-group"><label>Status</label><select value={form.status} onChange={e=>set('status',e.target.value)}>{STATUSES.map(s=><option key={s}>{s}</option>)}</select></div>
+            <div className="form-group"><label>Location</label>
+              <select value={form.location_id||''} onChange={e=>set('location_id',e.target.value)}>
+                <option value="">— None —</option>
+                {(locations||[]).map(l=><option key={l.id} value={l.id}>{l.name}</option>)}
+              </select>
+            </div>
             <div className="form-group"><label>Condition</label><select value={form.condition} onChange={e=>set('condition',e.target.value)}>{CONDITIONS.map(c=><option key={c}>{c}</option>)}</select></div>
             <div className="form-group"><label>Purchase Date</label><input type="date" value={form.purchase_date||''} onChange={e=>set('purchase_date',e.target.value)} /></div>
             <div className="form-group"><label>Warranty Expiration</label><input type="date" value={form.warranty_expiration||''} onChange={e=>set('warranty_expiration',e.target.value)} /></div>
@@ -1018,6 +1064,270 @@ function Spares({ radios, onSave, notify }) {
           </tbody>
         </table>
       </div>
+    </div>
+  );
+}
+
+// ─── CHANNELS ─────────────────────────────────────────────────────
+function Channels({ channels, locations, onSave, onDelete, notify }) {
+  const [showForm, setShowForm] = useState(false);
+  const [editing, setEditing] = useState(null);
+  const [filterLoc, setFilterLoc] = useState('');
+  const [confirmDelete, setConfirmDelete] = useState(null);
+
+  const locationNames = useMemo(() => {
+    const map = {};
+    (locations||[]).forEach(l => { map[l.id] = l.name; });
+    return map;
+  }, [locations]);
+
+  const filtered = useMemo(() => {
+    if (!filterLoc) return channels;
+    return channels.filter(c => c.location === filterLoc);
+  }, [channels, filterLoc]);
+
+  const grouped = useMemo(() => {
+    const g = {};
+    filtered.forEach(c => {
+      const loc = c.location || 'Unknown';
+      if (!g[loc]) g[loc] = [];
+      g[loc].push(c);
+    });
+    return g;
+  }, [filtered]);
+
+  return (
+    <div>
+      <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:20 }}>
+        <div>
+          <div style={{ fontFamily:'var(--mono)', fontSize:12, color:'var(--text3)', marginBottom:4 }}>FREQUENCY REFERENCE</div>
+          <h2 style={{ fontSize:20, fontWeight:500 }}>Channel Reference</h2>
+        </div>
+        <button className="btn btn-primary" onClick={() => { setEditing(null); setShowForm(true); }}>+ Add Channel</button>
+      </div>
+
+      <div style={{ marginBottom:16 }}>
+        <select value={filterLoc} onChange={e=>setFilterLoc(e.target.value)}>
+          <option value="">All Locations</option>
+          {(locations||[]).map(l=><option key={l.id} value={l.name}>{l.name}</option>)}
+        </select>
+      </div>
+
+      {Object.keys(grouped).length === 0 && (
+        <div style={{ background:'var(--surface)', border:'1px solid var(--border)', borderRadius:6, padding:40, textAlign:'center', color:'var(--text3)' }}>
+          No channels added yet. Click "+ Add Channel" to get started.
+        </div>
+      )}
+
+      {Object.entries(grouped).map(([loc, chs]) => (
+        <div key={loc} style={{ marginBottom:24 }}>
+          <div style={{ display:'flex', alignItems:'center', gap:12, marginBottom:10 }}>
+            <div style={{ fontFamily:'var(--mono)', fontSize:13, fontWeight:600, color:'var(--green)', background:'#f0f7ef', border:'1px solid #b8d4b5', padding:'4px 12px', borderRadius:4 }}>
+              📡 {loc} Channel List
+            </div>
+            {loc === 'BMC3' && (
+              <div style={{ fontSize:12, color:'var(--text3)', fontStyle:'italic' }}>
+                *NOTE: Includes new channel frequencies per FCC License (WQMK418)
+              </div>
+            )}
+          </div>
+          <div style={{ background:'var(--surface)', border:'1px solid var(--border)', borderRadius:6, overflow:'hidden' }}>
+            <table>
+              <thead>
+                <tr>
+                  <th>Channel</th>
+                  <th>RX Freq</th>
+                  <th>RX CTCSS/CDCSS</th>
+                  <th>TX Freq</th>
+                  <th>TX CTCSS/CDCSS</th>
+                  <th>User Group</th>
+                  <th>Notes</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {chs.map(c => (
+                  <tr key={c.id}>
+                    <td><span style={{ fontFamily:'var(--mono)', fontWeight:600, color:'var(--green)' }}>{c.channel_number}</span></td>
+                    <td><span style={{ fontFamily:'var(--mono)', fontSize:12 }}>{c.rx_freq}</span></td>
+                    <td><span style={{ fontFamily:'var(--mono)', fontSize:12, color:'var(--text2)' }}>{c.rx_ctcss||'—'}</span></td>
+                    <td><span style={{ fontFamily:'var(--mono)', fontSize:12 }}>{c.tx_freq}</span></td>
+                    <td><span style={{ fontFamily:'var(--mono)', fontSize:12, color:'var(--text2)' }}>{c.tx_ctcss||'—'}</span></td>
+                    <td style={{ fontSize:12, color:'var(--text2)' }}>{c.user_group||'—'}</td>
+                    <td style={{ fontSize:12, color:'var(--text3)' }}>{c.notes||'—'}</td>
+                    <td>
+                      <div style={{ display:'flex', gap:6 }}>
+                        <button className="btn btn-secondary btn-sm" onClick={() => { setEditing(c); setShowForm(true); }}>Edit</button>
+                        <button className="btn btn-sm" onClick={() => setConfirmDelete(c)}
+                          style={{ background:'transparent', color:'var(--danger)', border:'1px solid var(--danger)', borderRadius:4, fontSize:12, padding:'5px 10px' }}>
+                          Delete
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      ))}
+
+      {showForm && (
+        <ChannelForm channel={editing} locations={locations}
+          onSave={async c => { const ok = await onSave(c); if (ok) setShowForm(false); }}
+          onClose={() => setShowForm(false)} />
+      )}
+
+      {confirmDelete && (
+        <div className="modal-overlay" onClick={e=>e.stopPropagation()}>
+          <div className="modal" style={{ maxWidth:400 }}>
+            <div className="modal-header">
+              <span style={{ fontFamily:'var(--mono)', fontWeight:600, color:'var(--danger)' }}>⚠ Confirm Delete</span>
+            </div>
+            <div className="modal-body">
+              <p style={{ fontSize:14, color:'var(--text)' }}>Delete <strong>{confirmDelete.channel_number}</strong> from <strong>{confirmDelete.location}</strong>? This cannot be undone.</p>
+            </div>
+            <div className="modal-footer">
+              <button className="btn btn-secondary" onClick={() => setConfirmDelete(null)}>Cancel</button>
+              <button className="btn btn-sm" onClick={async () => { await onDelete(confirmDelete.id); setConfirmDelete(null); }}
+                style={{ background:'var(--danger)', color:'#fff', border:'none', borderRadius:4, fontSize:13, padding:'8px 16px', fontWeight:500 }}>
+                Yes, Delete
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function ChannelForm({ channel, locations, onSave, onClose }) {
+  const [form, setForm] = useState(channel || {
+    location:'', channel_number:'', rx_freq:'', rx_ctcss:'', tx_freq:'', tx_ctcss:'', user_group:'', notes:''
+  });
+  const set = (k,v) => setForm(f=>({...f,[k]:v}));
+
+  return (
+    <div className="modal-overlay" onClick={e=>e.stopPropagation()}>
+      <div className="modal" style={{ maxWidth:580 }}>
+        <div className="modal-header">
+          <span style={{ fontFamily:'var(--mono)', fontWeight:600 }}>{channel ? 'Edit Channel' : 'Add Channel'}</span>
+          <button className="btn btn-secondary btn-sm" onClick={onClose}>✕</button>
+        </div>
+        <div className="modal-body">
+          <div className="form-grid">
+            <div className="form-group">
+              <label>Location *</label>
+              <select value={form.location||''} onChange={e=>set('location',e.target.value)}>
+                <option value="">— Select location —</option>
+                {(locations||[]).map(l=><option key={l.id} value={l.name}>{l.name}</option>)}
+              </select>
+            </div>
+            <div className="form-group"><label>Channel *</label><input placeholder="CH 1" value={form.channel_number||''} onChange={e=>set('channel_number',e.target.value)} /></div>
+            <div className="form-group"><label>RX Frequency</label><input placeholder="463.22500" value={form.rx_freq||''} onChange={e=>set('rx_freq',e.target.value)} /></div>
+            <div className="form-group"><label>RX CTCSS / CDCSS</label><input placeholder="D306" value={form.rx_ctcss||''} onChange={e=>set('rx_ctcss',e.target.value)} /></div>
+            <div className="form-group"><label>TX Frequency</label><input placeholder="463.22500" value={form.tx_freq||''} onChange={e=>set('tx_freq',e.target.value)} /></div>
+            <div className="form-group"><label>TX CTCSS / CDCSS</label><input placeholder="D306" value={form.tx_ctcss||''} onChange={e=>set('tx_ctcss',e.target.value)} /></div>
+            <div className="form-group"><label>User Group</label><input placeholder="Production" value={form.user_group||''} onChange={e=>set('user_group',e.target.value)} /></div>
+            <div className="form-group"><label>Notes</label><input value={form.notes||''} onChange={e=>set('notes',e.target.value)} /></div>
+          </div>
+        </div>
+        <div className="modal-footer">
+          <button className="btn btn-secondary" onClick={onClose}>Cancel</button>
+          <button className="btn btn-primary" onClick={() => {
+            if (!form.location || !form.channel_number) { alert('Location and Channel are required'); return; }
+            onSave(form);
+          }}>Save Channel</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── SETTINGS ─────────────────────────────────────────────────────
+function Settings({ locations, onSaveLocation, onDeleteLocation, notify }) {
+  const [newLoc, setNewLoc] = useState('');
+  const [saving, setSaving] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(null);
+
+  const handleAdd = async () => {
+    if (!newLoc.trim()) return;
+    if ((locations||[]).find(l => l.name.toLowerCase() === newLoc.trim().toLowerCase())) {
+      notify('A location with that name already exists.', 'warn'); return;
+    }
+    setSaving(true);
+    await onSaveLocation(newLoc.trim());
+    setNewLoc('');
+    setSaving(false);
+  };
+
+  return (
+    <div style={{ maxWidth:600 }}>
+      <div style={{ marginBottom:24 }}>
+        <div style={{ fontFamily:'var(--mono)', fontSize:12, color:'var(--text3)', marginBottom:4 }}>CONFIGURATION</div>
+        <h2 style={{ fontSize:20, fontWeight:500 }}>Settings</h2>
+      </div>
+
+      <div style={{ background:'var(--surface)', border:'1px solid var(--border)', borderRadius:6, overflow:'hidden', marginBottom:24 }}>
+        <div style={{ padding:'14px 20px', borderBottom:'1px solid var(--border)', background:'var(--surface2)', display:'flex', alignItems:'center', justifyContent:'space-between' }}>
+          <span style={{ fontFamily:'var(--mono)', fontSize:12, fontWeight:600, textTransform:'uppercase', letterSpacing:'0.07em', color:'var(--text3)' }}>
+            Locations
+          </span>
+          <span style={{ fontFamily:'var(--mono)', fontSize:11, color:'var(--text3)' }}>{(locations||[]).length} location{(locations||[]).length!==1?'s':''}</span>
+        </div>
+
+        {(locations||[]).length === 0 && (
+          <div style={{ padding:24, color:'var(--text3)', fontSize:13 }}>No locations added yet.</div>
+        )}
+
+        {(locations||[]).map(l => (
+          <div key={l.id} style={{ display:'flex', justifyContent:'space-between', alignItems:'center', padding:'12px 20px', borderBottom:'1px solid var(--border)' }}>
+            <div style={{ display:'flex', alignItems:'center', gap:10 }}>
+              <span style={{ color:'var(--green)', fontSize:16 }}>📍</span>
+              <span style={{ fontWeight:500 }}>{l.name}</span>
+            </div>
+            <button className="btn btn-sm" onClick={() => setConfirmDelete(l)}
+              style={{ background:'transparent', color:'var(--danger)', border:'1px solid var(--danger)', borderRadius:4, fontSize:12, padding:'4px 10px' }}>
+              Remove
+            </button>
+          </div>
+        ))}
+
+        <div style={{ padding:'14px 20px', background:'var(--surface2)', display:'flex', gap:10, alignItems:'center' }}>
+          <input
+            placeholder="New location name (e.g. BMC4)"
+            value={newLoc}
+            onChange={e=>setNewLoc(e.target.value)}
+            onKeyDown={e=>e.key==='Enter'&&handleAdd()}
+            style={{ flex:1 }}
+          />
+          <button className="btn btn-primary" onClick={handleAdd} disabled={saving || !newLoc.trim()}>
+            {saving ? 'Adding…' : '+ Add Location'}
+          </button>
+        </div>
+      </div>
+
+      {confirmDelete && (
+        <div className="modal-overlay" onClick={e=>e.stopPropagation()}>
+          <div className="modal" style={{ maxWidth:400 }}>
+            <div className="modal-header">
+              <span style={{ fontFamily:'var(--mono)', fontWeight:600, color:'var(--danger)' }}>⚠ Remove Location</span>
+            </div>
+            <div className="modal-body">
+              <p style={{ fontSize:14, color:'var(--text)' }}>
+                Remove <strong>{confirmDelete.name}</strong>? This will not delete radios assigned to this location, but the location will no longer appear in dropdown menus.
+              </p>
+            </div>
+            <div className="modal-footer">
+              <button className="btn btn-secondary" onClick={() => setConfirmDelete(null)}>Cancel</button>
+              <button className="btn btn-sm" onClick={async () => { await onDeleteLocation(confirmDelete.id); setConfirmDelete(null); }}
+                style={{ background:'var(--danger)', color:'#fff', border:'none', borderRadius:4, fontSize:13, padding:'8px 16px', fontWeight:500 }}>
+                Yes, Remove
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
